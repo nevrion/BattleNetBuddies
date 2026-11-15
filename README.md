@@ -24,6 +24,8 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 
 ## Benutzung
 
+- **Minimap-Button:** Linksklick öffnet das Hauptfenster mit der Freundesliste, Rechtsklick die **Einstellungen**, Ziehen verschiebt den Button am Minimaprand. Das Hauptfenster ist unabhängig vom Post-Fenster, öffnet sich auch mit `/pp` und lässt sich verschieben (die Position wird gemerkt). Ohne offenes Post-Fenster öffnet ein Klick auf einen Namen Notiz und Berufe, mit offenem Post-Fenster übernimmt er den Namen.
+- **Einstellungen:** Alles, was es als Befehl gibt, geht auch per Klick: Minimap-Button, automatisches Einlesen und Namen anderer Server/Fraktionen als Schalter, "Jetzt einlesen", Namen von Hand hinzufügen, Diagnose in den Chat, dazu eine Übersicht der Befehle. Namen vergessen geht im Bearbeitungsfenster (Rechtsklick auf einen Namen).
 - **Im Post-Fenster** im Feld "An" ein paar Buchstaben tippen, auch nur vom **Nachnamen** oder vom Namen des Freundes. Es erscheint ein Vorschlagsfenster, **Tab** übernimmt den ersten Treffer, ein Klick übernimmt den gewählten Namen.
 - Der Knopf **Freunde** neben dem Feld öffnet die komplette Liste mit Suche, Klassensymbolen und Mausrad-Blättern. Die Liste ist **nach BattleTag gruppiert**: Jeder Freund steht als Zeile mit seinem BattleTag, ein Klick klappt seine Charaktere auf (Zähler, Notiz und Berufe stehen schon in der Kopfzeile). Beim Suchen klappen die Treffer von selbst auf, welche Freunde aufgeklappt sind, wird gemerkt. Namen ohne BattleTag (Gilde, Gruppe, Flüstern) stehen einzeln darunter.
 - **Notizen und Berufe:** **Rechtsklick** auf einen Namen (Liste oder Vorschlag) öffnet ein Fenster mit einer Notiz (z.B. "tauscht gern Erz") und den Berufen des Freundes zum Anklicken (Bergbau, Kräuterkunde, Kürschnerei, Schmiedekunst, Ingenieurskunst, Alchemie, Schneiderei, Lederverarbeitung, Verzauberkunst, Kochkunst, Erste Hilfe, Angeln). Beides gilt für alle Charaktere desselben Freundes, die Berufe erscheinen als Symbole in der Zeile, alles steht im Tooltip und ist durchsuchbar: "schmied" findet alle Freunde, die Schmiedekunst haben. Das Spiel verrät die Berufe eines Freundes nicht, du trägst sie selbst ein.
@@ -34,7 +36,10 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 
 | Befehl | Wirkung |
 |---|---|
-| `/pp` | Hilfe |
+| `/pp` | Hauptfenster öffnen |
+| `/pp einstellungen` | Einstellungen öffnen |
+| `/pp minimap` | Minimap-Button ein- oder ausblenden |
+| `/pp hilfe` | Befehle im Chat |
 | `/pp liste [Teil]` | gemerkte Namen anzeigen |
 | `/pp note <Name> \| <Text>` | Notiz zu einem Freund setzen (leerer Text löscht) |
 | `/pp beruf <Name> \| <Beruf, Beruf>` | Berufe eines Freundes eintragen (leer löscht) |
@@ -88,6 +93,8 @@ Postillion quietly records every name the game shows you and stores it permanent
 
 ## Usage
 
+- **Minimap button:** left-click opens the main window with the friends list, right-click opens the **settings**, dragging moves the button around the minimap. The main window works independently of the mail window, also opens with `/pp` and can be moved (position is remembered). With the mail window closed, clicking a name opens note and professions; with it open, it picks the name.
+- **Settings:** everything that exists as a command also works by click: minimap button, automatic scan and names of other realms/factions as toggles, "Scan now", add a name by hand, diagnostics to chat, plus an overview of the commands. Forgetting a name is in the edit window (right-click a name).
 - **In the mail window**, type a few letters into the "To" field, also just of the **last name** or of the friend's name. A suggestion popup appears, **Tab** accepts the first match, a click picks the selected name.
 - The **Friends** button next to the field opens the full list with search, class icons and mouse-wheel scrolling. The list is **grouped by BattleTag**: each friend is one row with their BattleTag, a click expands their characters (count, note and professions are already shown in the header row). While searching, matches expand automatically, and which friends are expanded is remembered. Names without a BattleTag (guild, group, whispers) are listed individually below.
 - **Notes and professions:** **right-click** a name (list or suggestion) to open a window with a note (e.g. "likes to trade ore") and the friend's professions to click (Mining, Herbalism, Skinning, Blacksmithing, Engineering, Alchemy, Tailoring, Leatherworking, Enchanting, Cooking, First Aid, Fishing). Both apply to all characters of the same friend, professions show as icons in the row, everything is in the tooltip and searchable: "blacksm" finds every friend who has Blacksmithing. The game does not reveal a friend's professions, so you enter them yourself.
@@ -98,7 +105,10 @@ Postillion quietly records every name the game shows you and stores it permanent
 
 | Command | Effect |
 |---|---|
-| `/pp` | help |
+| `/pp` | open the main window |
+| `/pp settings` | open the settings |
+| `/pp minimap` | show or hide the minimap button |
+| `/pp help` | commands in chat |
 | `/pp list [part]` | show remembered names |
 | `/pp note <name> \| <text>` | set a note for a friend (empty text deletes) |
 | `/pp prof <name> \| <profession, profession>` | set a friend's professions (empty deletes) |

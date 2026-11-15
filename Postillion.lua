@@ -395,8 +395,10 @@ local function describe(c)
   return table.concat(parts, " · ")
 end
 
+local editNote
 local function chooseName(c)
-  if not box then return end
+  -- Post-Fenster nicht offen: Klick auf einen Namen öffnet stattdessen Notiz und Berufe
+  if not (box and box:IsVisible()) then editNote(c) return end
   if not sameWorld(c) then
     print("|cffffcc5cPostillion:|r |cffff5555" .. L("Achtung: ", "Warning: ") .. c.name .. " ("
       .. worldLabel(c) .. ") " .. L("ist auf einem anderen Server oder in einer anderen Fraktion als du.",
@@ -476,12 +478,22 @@ local function buildEdit()
   ok:SetScript("OnEnter", function(self) self:SetBackdropColor(1, 0.88, 0.55, 1) end)
   local cancel = FlatButton(f, L("Abbrechen", "Cancel"), 100, 24, function() f:Hide() end)
   cancel:SetPoint("RIGHT", ok, "LEFT", -8, 0)
+  local forget = FlatButton(f, L("Name vergessen", "Forget name"), 120, 24, function()
+    local c = f.c
+    if c and c.key then
+      db.chars[c.key] = nil; db.hide[c.key] = true
+      print("|cffffcc5cPostillion:|r " .. L("vergessen: ", "forgotten: ") .. c.name)
+      if NP.RefreshAll then NP.RefreshAll() end
+    end
+    f:Hide()
+  end)
+  forget:SetPoint("BOTTOMLEFT", 14, 12)
   local close = FlatButton(f, "×", 22, 22, function() f:Hide() end)
   close:SetPoint("TOPRIGHT", -8, -8)
   return f
 end
 
-local function editNote(c)
+editNote = function(c)
   editFrame = editFrame or buildEdit()
   local f = editFrame
   f.c = c
@@ -775,17 +787,94 @@ local function buildUI()
   end)
   btn:HookScript("OnLeave", function() GameTooltip:Hide() end)
 
-  -- Listenfenster
+  if MailFrame then MailFrame:HookScript("OnHide", function() sug:Hide() end) end
+end
+
+----------------------------------------------------------------------
+-- Hauptfenster (Reiter Freunde / Einstellungen) und Minimap-Button
+----------------------------------------------------------------------
+
+local pageList, pageSet
+local tabBtns = {}
+local checks = {}
+local mm
+local setInfo
+
+local function Check(parent, label, get, set)
+  local b = CreateFrame("Button", nil, parent)
+  b:SetSize(376, 20)
+  b.box = CreateFrame("Frame", nil, b, "BackdropTemplate")
+  b.box:SetSize(16, 16); b.box:SetPoint("LEFT", 0, 0)
+  Flat(b.box, C.field)
+  b.mark = b.box:CreateTexture(nil, "OVERLAY")
+  b.mark:SetSize(8, 8); b.mark:SetPoint("CENTER", 0, 0)
+  b.mark:SetColorTexture(unpack(C.sun))
+  b.text = Text(b, 12)
+  b.text:SetPoint("LEFT", b.box, "RIGHT", 8, 0)
+  b.text:SetText(label)
+  function b:Refresh() self.mark:SetShown(get() and true or false) end
+  b:SetScript("OnClick", function(self) set(not get()); self:Refresh() end)
+  b:SetScript("OnEnter", function(self) self.box:SetBackdropBorderColor(unpack(C.sun)) end)
+  b:SetScript("OnLeave", function(self) self.box:SetBackdropBorderColor(unpack(C.edge)) end)
+  checks[#checks + 1] = b
+  return b
+end
+
+function NP.RefreshSettings()
+  for _, c in ipairs(checks) do c:Refresh() end
+  if setInfo then
+    local nChars, tags, nTags = 0, {}, 0
+    for _, c in pairs(db.chars) do
+      nChars = nChars + 1
+      if c.tag and not tags[c.tag] then tags[c.tag] = true; nTags = nTags + 1 end
+    end
+    setInfo:SetText(nChars .. L(" Namen gemerkt, davon ", " names remembered, ") .. nTags .. L(" Freunde mit BattleTag", " friends with a BattleTag"))
+  end
+end
+
+local function selectTab(which)
+  NP.tab = which
+  if not pageList then return end
+  pageList:SetShown(which == "list"); pageSet:SetShown(which == "settings")
+  for k, b in pairs(tabBtns) do
+    if k == which then
+      b:SetBackdropBorderColor(unpack(C.sun)); b:SetBackdropColor(unpack(C.cardHover)); b.label:SetTextColor(unpack(C.sun))
+    else
+      b:SetBackdropBorderColor(unpack(C.edge)); b:SetBackdropColor(unpack(C.card)); b.label:SetTextColor(unpack(C.text))
+    end
+  end
+  if which == "list" then refreshList() else NP.RefreshSettings() end
+end
+
+local function placeWindow()
+  listFrame:ClearAllPoints()
+  local w = db.winPos
+  if w and w[1] then
+    listFrame:SetPoint(w[1], UIParent, w[2], w[3], w[4])
+  elseif MailFrame and MailFrame:IsShown() then
+    listFrame:SetPoint("TOPLEFT", MailFrame, "TOPRIGHT", 6, -20)
+  else
+    listFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
+  end
+end
+
+local function buildMain()
+  if listFrame then return end
+  local H = 40 + 28 + 34 + LIST_ROWS * ROW_H + 30
   listFrame = Panel("PostillionList")
   listFrame:SetFrameStrata("DIALOG")
-  listFrame:SetSize(400, 40 + 34 + LIST_ROWS * ROW_H + 30)
-  listFrame:SetPoint("TOPLEFT", MailFrame or box, "TOPRIGHT", 6, -20)
+  listFrame:SetSize(400, H)
   listFrame:SetMovable(true); listFrame:EnableMouse(true)
   listFrame:RegisterForDrag("LeftButton")
   listFrame:SetScript("OnDragStart", function(s) s:StartMoving() end)
-  listFrame:SetScript("OnDragStop", function(s) s:StopMovingOrSizing() end)
+  listFrame:SetScript("OnDragStop", function(s)
+    s:StopMovingOrSizing()
+    local p, _, rp, x, y = s:GetPoint()
+    db.winPos = { p, rp, x, y }
+  end)
   listFrame:EnableMouseWheel(true)
   listFrame:Hide()
+  if UISpecialFrames then table.insert(UISpecialFrames, "PostillionList") end
 
   local title = Text(listFrame, 15, C.sun)
   title:SetPoint("TOPLEFT", 12, -11); title:SetText("Postillion")
@@ -794,8 +883,25 @@ local function buildUI()
   local close = FlatButton(listFrame, "×", 22, 22, function() listFrame:Hide() end)
   close:SetPoint("TOPRIGHT", -8, -8)
 
-  local search = CreateFrame("EditBox", nil, listFrame, "BackdropTemplate")
-  search:SetHeight(24); search:SetPoint("TOPLEFT", 8, -40); search:SetPoint("TOPRIGHT", -8, -40)
+  -- Reiter
+  local function tab(key, label, x)
+    local b = FlatButton(listFrame, label, 120, 22, function() selectTab(key) end)
+    b:SetPoint("TOPLEFT", x, -36)
+    b:SetScript("OnEnter", nil); b:SetScript("OnLeave", nil)
+    tabBtns[key] = b
+  end
+  tab("list", L("Freunde", "Friends"), 12)
+  tab("settings", L("Einstellungen", "Settings"), 138)
+
+  pageList = CreateFrame("Frame", nil, listFrame)
+  pageList:SetPoint("TOPLEFT", 0, -62); pageList:SetPoint("BOTTOMRIGHT", 0, 0)
+  pageSet = CreateFrame("Frame", nil, listFrame)
+  pageSet:SetPoint("TOPLEFT", 0, -62); pageSet:SetPoint("BOTTOMRIGHT", 0, 0)
+  pageSet:Hide()
+
+  ------------------------------------------------------------ Reiter Freunde
+  local search = CreateFrame("EditBox", nil, pageList, "BackdropTemplate")
+  search:SetHeight(24); search:SetPoint("TOPLEFT", 8, -6); search:SetPoint("TOPRIGHT", -8, -6)
   Flat(search, C.field)
   search:SetFont(FONT, 12, ""); search:SetTextColor(unpack(C.text))
   search:SetAutoFocus(false); search:SetTextInsets(8, 8, 0, 0)
@@ -807,10 +913,10 @@ local function buildUI()
   listFrame.search = search
   listFrame.placeholder = Text(search, 12, C.dim)
   listFrame.placeholder:SetPoint("LEFT", 8, 0)
-  listFrame.placeholder:SetText(L("Name, Nachname oder Freund suchen ...", "Search name, last name or friend ..."))
+  listFrame.placeholder:SetText(L("Name, Nachname, Freund oder Beruf suchen ...", "Search name, last name, friend or profession ..."))
 
-  local holder = CreateFrame("Frame", nil, listFrame)
-  holder:SetPoint("TOPLEFT", 0, -70); holder:SetPoint("BOTTOMRIGHT", 0, 30)
+  local holder = CreateFrame("Frame", nil, pageList)
+  holder:SetPoint("TOPLEFT", 0, -36); holder:SetPoint("BOTTOMRIGHT", 0, 30)
   listRows = {}
   for i = 1, LIST_ROWS do listRows[i] = makeRow(holder, i, chooseName, 0) end
   for i = 1, LIST_ROWS do listRows[i]:SetPoint("RIGHT", holder, "RIGHT", -13, 0) end
@@ -819,7 +925,6 @@ local function buildUI()
   listFrame.empty:SetText(L("Noch keine passenden Namen.\nFreunde werden gemerkt, sobald sie online sind.",
     "No matching names yet.\nFriends are remembered once they are online."))
 
-  -- Rollbalken
   local track = CreateFrame("Frame", nil, holder)
   track:SetWidth(4); track:SetPoint("TOPRIGHT", -5, -2); track:SetPoint("BOTTOMRIGHT", -5, 2)
   local tbg = track:CreateTexture(nil, "BACKGROUND"); tbg:SetAllPoints(); tbg:SetColorTexture(unpack(C.field))
@@ -827,35 +932,159 @@ local function buildUI()
   listFrame.thumb:SetWidth(4); listFrame.thumb:SetColorTexture(unpack(C.edge))
   listFrame.track = track
 
-  -- Fuß: Zähler, Schalter für fremde Server/Fraktionen
-  listFrame.count = Text(listFrame, 10, C.dim)
+  listFrame.count = Text(pageList, 10, C.dim)
   listFrame.count:SetPoint("BOTTOMLEFT", 12, 10)
-  local tog = FlatButton(listFrame, "", 170, 18, function(self)
-    db.showAll = not db.showAll
-    self.label:SetText((db.showAll and "[x] " or "[ ] ") .. L("andere Server/Fraktionen", "other realms/factions"))
-    listOffset = 0; refreshList()
+  local hintR = Text(pageList, 10, C.dim)
+  hintR:SetPoint("BOTTOMRIGHT", -12, 10)
+  hintR:SetText(L("Klick = Name/Aufklappen · Rechtsklick = Notiz", "Click = name/expand · right-click = note"))
+
+  ------------------------------------------------------- Reiter Einstellungen
+  local function head(text, y)
+    local t = Text(pageSet, 12, C.sun)
+    t:SetPoint("TOPLEFT", 12, y); t:SetText(text)
+    local line = pageSet:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(unpack(C.edge)); line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 12, y - 16); line:SetPoint("TOPRIGHT", -12, y - 16)
+  end
+  head(L("Allgemein", "General"), -8)
+  local c1 = Check(pageSet, L("Minimap-Button anzeigen", "Show minimap button"),
+    function() return not db.mmHide end,
+    function(v) db.mmHide = not v; if mm then mm:SetShown(v) end end)
+  c1:SetPoint("TOPLEFT", 12, -30)
+  local c2 = Check(pageSet, L("Automatisch im Hintergrund einlesen (Freunde 60 s, Gilde 5 min)", "Scan automatically in the background (friends 60 s, guild 5 min)"),
+    function() return db.auto ~= false end,
+    function(v) db.auto = v end)
+  c2:SetPoint("TOPLEFT", 12, -52)
+  local c3 = Check(pageSet, L("Namen anderer Server/Fraktionen in der Liste zeigen", "Show names of other realms/factions in the list"),
+    function() return db.showAll and true or false end,
+    function(v) db.showAll = v or nil; listOffset = 0 end)
+  c3:SetPoint("TOPLEFT", 12, -74)
+
+  head(L("Namen", "Names"), -104)
+  setInfo = Text(pageSet, 11, C.dim)
+  setInfo:SetPoint("TOPLEFT", 12, -126)
+  local scan = FlatButton(pageSet, L("Jetzt einlesen", "Scan now"), 130, 24, function()
+    NP.ScanAll(); NP.RefreshSettings()
   end)
-  tog.label:SetFont(FONT, 10, "")
-  tog.label:SetTextColor(unpack(C.dim))
-  tog:SetPoint("BOTTOMRIGHT", -8, 6)
-  listFrame.toggle = tog
+  scan:SetPoint("TOPLEFT", 12, -146)
+  local diag = FlatButton(pageSet, L("Diagnose in den Chat", "Diagnostics to chat"), 160, 24, function()
+    SlashCmdList.POSTILLION("debug")
+  end)
+  diag:SetPoint("LEFT", scan, "RIGHT", 8, 0)
+
+  local addL = Text(pageSet, 11, C.dim)
+  addL:SetPoint("TOPLEFT", 12, -180)
+  addL:SetText(L("Namen von Hand merken (für deinen Server und deine Fraktion)", "Remember a name by hand (for your realm and faction)"))
+  local addE = CreateFrame("EditBox", nil, pageSet, "BackdropTemplate")
+  addE:SetSize(250, 24); addE:SetPoint("TOPLEFT", 12, -198)
+  Flat(addE, C.field)
+  addE:SetFont(FONT, 12, ""); addE:SetTextColor(unpack(C.text)); addE:SetAutoFocus(false); addE:SetTextInsets(8, 8, 0, 0)
+  addE:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
+  addE:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(unpack(C.sun)) end)
+  addE:SetScript("OnEditFocusLost", function(s) s:SetBackdropBorderColor(unpack(C.edge)) end)
+  local function doAdd()
+    local n = addE:GetText() or ""
+    if n:gsub("%s", "") == "" then return end
+    remember(n, "manuell", nil, nil, nil, nil, GetRealmName and GetRealmName(), UnitFactionGroup("player"))
+    addE:SetText(""); addE:ClearFocus()
+    print("|cffffcc5cPostillion:|r " .. L("gemerkt: ", "remembered: ") .. n)
+    NP.RefreshSettings()
+  end
+  addE:SetScript("OnEnterPressed", doAdd)
+  local addB = FlatButton(pageSet, L("Hinzufügen", "Add"), 100, 24, doAdd)
+  addB:SetPoint("LEFT", addE, "RIGHT", 8, 0)
+
+  head(L("Befehle", "Commands"), -232)
+  local cmds = Text(pageSet, 10, C.dim)
+  cmds:SetPoint("TOPLEFT", 12, -254); cmds:SetWidth(376); cmds:SetJustifyV("TOP")
+  if cmds.SetSpacing then cmds:SetSpacing(3) end
+  cmds:SetText(table.concat({
+    "|cffffcc5c/pp|r  " .. L("Fenster öffnen", "open the window"),
+    "|cffffcc5c/pp einstellungen|r  " .. L("diesen Reiter öffnen", "open this tab"),
+    "|cffffcc5c/pp liste [Teil]|r  " .. L("Namen im Chat auflisten", "list names in chat"),
+    "|cffffcc5c/pp note Name | Text|r  " .. L("Notiz setzen (Rechtsklick geht auch)", "set a note (right-click works too)"),
+    "|cffffcc5c/pp beruf Name | Beruf, Beruf|r  " .. L("Berufe setzen", "set professions"),
+    "|cffffcc5c/pp add Name|r  " .. L("Namen merken", "remember a name"),
+    "|cffffcc5c/pp del Name|r  " .. L("Namen vergessen", "forget a name"),
+    "|cffffcc5c/pp scan|r  " .. L("jetzt einlesen", "scan now"),
+    "|cffffcc5c/pp auto · /pp alle · /pp minimap|r  " .. L("Schalter wie oben", "toggles as above"),
+    "|cffffcc5c/pp debug|r  " .. L("Diagnose in den Chat", "diagnostics to chat"),
+  }, "\n"))
 
   listFrame:SetScript("OnMouseWheel", function(_, d)
+    if NP.tab ~= "list" then return end
     listOffset = listOffset - d * 3
     refreshList()
   end)
   listFrame:SetScript("OnShow", function()
     NP.ScanAll()
-    tog.label:SetText((db.showAll and "[x] " or "[ ] ") .. L("andere Server/Fraktionen", "other realms/factions"))
-    refreshList()
+    selectTab(NP.tab or "list")
   end)
-  if MailFrame then MailFrame:HookScript("OnHide", function() listFrame:Hide(); sug:Hide() end) end
 end
 
-function NP.ToggleList()
-  if not listFrame then return end
-  if listFrame:IsShown() then listFrame:Hide() else listFrame:Show() end
+function NP.Open(which)
+  if not db then return end
+  buildMain()
+  which = which or NP.tab or "list"
+  if listFrame:IsShown() and NP.tab == which then listFrame:Hide() return end
+  if not listFrame:IsShown() then placeWindow(); listFrame:Show() end
+  selectTab(which)
 end
+function NP.ToggleList() NP.Open("list") end
+
+-- Minimap-Button: Linksklick Freunde, Rechtsklick Einstellungen, Ziehen verschiebt ihn am Rand
+local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
+local function placeMinimap()
+  if not mm then return end
+  local a = math.rad(db.mmAngle or 200)
+  local r = (Minimap:GetWidth() / 2) + 5
+  mm:ClearAllPoints()
+  mm:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+end
+
+function NP.BuildMinimap()
+  if mm or not Minimap then return end
+  mm = CreateFrame("Button", "PostillionMinimapButton", Minimap)
+  mm:SetSize(31, 31); mm:SetFrameStrata("MEDIUM"); mm:SetFrameLevel(8)
+  mm:RegisterForClicks("LeftButtonUp", "RightButtonUp"); mm:RegisterForDrag("LeftButton")
+  local bg = mm:CreateTexture(nil, "BACKGROUND")
+  bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+  local icon = mm:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(17, 17); icon:SetPoint("TOPLEFT", 7, -6)
+  icon:SetTexture("Interface\\Icons\\INV_Letter_15"); icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  local border = mm:CreateTexture(nil, "OVERLAY")
+  border:SetSize(53, 53); border:SetPoint("TOPLEFT")
+  border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  mm:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+  mm:SetScript("OnClick", function(_, button)
+    if button == "RightButton" then NP.Open("settings") else NP.Open("list") end
+  end)
+  mm:SetScript("OnDragStart", function(self)
+    self:SetScript("OnUpdate", function()
+      local mx, my = Minimap:GetCenter()
+      local px, py = GetCursorPosition()
+      local s = Minimap:GetEffectiveScale()
+      db.mmAngle = math.deg(atan2(py / s - my, px / s - mx))
+      placeMinimap()
+    end)
+  end)
+  mm:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+  mm:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText("Postillion", unpack(C.sun))
+    local n = 0
+    for _ in pairs(db.chars) do n = n + 1 end
+    GameTooltip:AddLine(n .. L(" Namen gemerkt", " names remembered"), 0.62, 0.6, 0.72)
+    GameTooltip:AddLine(L("Linksklick: Freunde und Notizen", "Left-click: friends and notes"), 1, 1, 1)
+    GameTooltip:AddLine(L("Rechtsklick: Einstellungen", "Right-click: settings"), 1, 1, 1)
+    GameTooltip:AddLine(L("Ziehen: Button verschieben", "Drag: move the button"), 0.62, 0.6, 0.72)
+    GameTooltip:Show()
+  end)
+  mm:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  placeMinimap()
+  mm:SetShown(not db.mmHide)
+end
+
 
 ----------------------------------------------------------------------
 -- Ereignisse
@@ -913,6 +1142,7 @@ f:SetScript("OnEvent", function(_, event, a1, ...)
     NP.ScanAll()
     if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
     NP.StartAuto()
+    NP.BuildMinimap()
     if SendMail and not NP.hookedSend then
       NP.hookedSend = true
       hooksecurefunc("SendMail", function(recipient) lastRecipient = recipient end)
@@ -951,7 +1181,15 @@ SlashCmdList["POSTILLION"] = function(msg)
   msg = msg or ""
   local cmd, rest = msg:match("^(%S*)%s*(.-)$")
   cmd = lower(cmd)
-  if cmd == "" or cmd == "hilfe" or cmd == "help" then
+  if cmd == "" then
+    NP.Open("list")
+  elseif cmd == "einstellungen" or cmd == "settings" or cmd == "config" then
+    NP.Open("settings")
+  elseif cmd == "minimap" then
+    db.mmHide = (not db.mmHide) or nil
+    if mm then mm:SetShown(not db.mmHide) end
+    say(db.mmHide and L("Minimap-Button AUS.", "Minimap button OFF.") or L("Minimap-Button AN.", "Minimap button ON."))
+  elseif cmd == "hilfe" or cmd == "help" then
     say(L("Merkt Charakternamen von Freunden und vervollständigt sie im Post-Feld, auch offline.",
           "Remembers friends' character names and autocompletes them in the mail field, also offline."))
     say(L("/pp liste [Teil]  zeigt gemerkte Namen", "/pp list [part]  shows remembered names"))
