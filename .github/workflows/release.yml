@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
       - uses: BigWigsMods/packager@v2
         with:
-          args: -d -n "{package-name}-{project-version}-forever"
+          args: -n "{package-name}-{project-version}-forever"
         env:
           GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
