@@ -16,9 +16,11 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 
 ## Installation
 
-1. Unter [Releases](../../releases) die Datei `Postillion-x.y.z.zip` herunterladen.
+1. Unter [Releases](../../releases) die Datei `Postillion-x.y.z-forever.zip` herunterladen.
 2. Den Ordner `Postillion` aus dem Zip nach `World of Warcraft/<Spielversion>/Interface/AddOns/` kopieren.
 3. Spiel starten oder `/reload`.
+
+**WoWUp:** Unter "Addons holen" die Spielversion Forever wählen, "Von URL installieren" und `https://github.com/nevrion/Postillion` einfügen. (WoWUp erkennt die Forever-Datei am Zusatz `-forever` im Zip-Namen.)
 
 ## Benutzung
 
@@ -78,9 +80,11 @@ Postillion quietly records every name the game shows you and stores it permanent
 
 ## Installation
 
-1. Download `Postillion-x.y.z.zip` from [Releases](../../releases).
+1. Download `Postillion-x.y.z-forever.zip` from [Releases](../../releases).
 2. Copy the `Postillion` folder from the zip to `World of Warcraft/<game version>/Interface/AddOns/`.
 3. Start the game or `/reload`.
+
+**WoWUp:** In "Get Addons" choose the Forever game version, use "Install from URL" and paste `https://github.com/nevrion/Postillion`. (WoWUp recognizes the Forever file by the `-forever` suffix in the zip name.)
 
 ## Usage
 
