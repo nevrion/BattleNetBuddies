@@ -26,6 +26,7 @@ local function initDB()
   db.chars = db.chars or {}
   db.hide = db.hide or {}     -- vom Nutzer entfernte Namen (Name|Server)
   db.notes = db.notes or {}   -- Notizen: ["tag:<BattleTag>"] oder ["char:<Name|Server>"]
+  db.open = db.open or {}     -- aufgeklappte BattleTag-Gruppen in der Liste
   db.profs = db.profs or {}   -- Berufe je Freund (gleicher Schlüssel wie Notizen): {"mining", "tailoring"}
   for k, c in pairs(db.chars) do c.key = c.key or k end
 end
@@ -282,6 +283,8 @@ local function matches(c, q)
   end
   local lab = lower(friendLabel(c))
   if lab ~= "" and lab:sub(1, #q) == q then return 2 end
+  local tg = lower(c.tag or "")
+  if tg ~= "" and tg:sub(1, #q) == q then return 2 end
   local note = getNote(c)
   if note and #q >= 2 and lower(note):find(q, 1, true) then return 2 end
   if #q >= 3 then
@@ -493,6 +496,7 @@ local function editNote(c)
 end
 
 -- Zeile: Klassensymbol, Name in Klassenfarbe, rechts Freund/Stufe, bei Fremden Server/Fraktion in Rot
+local toggleGroup
 local function makeRow(parent, i, onClick, top)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
   b:SetHeight(ROW_H - 2)
@@ -522,12 +526,27 @@ local function makeRow(parent, i, onClick, top)
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:SetScript("OnClick", function(self, button)
     if not self.c then return end
-    if button == "RightButton" then editNote(self.c) else onClick(self.c) end
+    if button == "RightButton" then editNote(self.c)
+    elseif self.group then toggleGroup(self.group)
+    else onClick(self.c) end
   end)
   b:HookScript("OnEnter", function(self)
     local c = self.c
     if not c then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    if self.group then
+      GameTooltip:SetText(c.tag or c.name, unpack(C.sun))
+      if c.acc then GameTooltip:AddLine(c.acc, 1, 1, 1) end
+      for _, nm in ipairs(self.groupNames or {}) do GameTooltip:AddLine(nm, 0.8, 0.8, 0.85) end
+      local gnames = {}
+      for _, k in ipairs(getProfs(c)) do if PROF_BY_KEY[k] then gnames[#gnames + 1] = PROF_BY_KEY[k][2] end end
+      if #gnames > 0 then GameTooltip:AddLine(table.concat(gnames, ", "), 0.47, 0.87, 0.7, true) end
+      local gnote = getNote(c)
+      if gnote then GameTooltip:AddLine(gnote, 1, 0.8, 0.36, true) end
+      GameTooltip:AddLine(L("Klick = auf-/zuklappen · Rechtsklick = Notiz und Berufe", "Click = expand/collapse · right-click = note and professions"), 0.62, 0.6, 0.72)
+      GameTooltip:Show()
+      return
+    end
     GameTooltip:SetText(c.name, classColor(c.class))
     local lab = friendLabel(c)
     if lab then GameTooltip:AddLine(lab, 1, 1, 1) end
@@ -544,10 +563,13 @@ local function makeRow(parent, i, onClick, top)
   return b
 end
 
-local function fillRow(r, res, first)
-  if not res then r.c = nil; r:Hide() return end
+local function fillRow(r, res, first, indent)
+  if not res then r.c = nil; r.group = nil; r:Hide() return end
   local c = res.c
   r.c = c
+  r.group = nil
+  r.icon:ClearAllPoints(); r.icon:SetPoint("LEFT", 7 + (indent or 0), 0); r.icon:SetSize(16, 16)
+  r.name:SetFont(FONT, 13, "")
   local ok = sameWorld(c)
   r.name:SetText(c.name)
   if ok then r.name:SetTextColor(classColor(c.class)) else r.name:SetTextColor(0.55, 0.55, 0.6) end
@@ -579,6 +601,34 @@ local function fillRow(r, res, first)
   r:Show()
 end
 
+-- Kopfzeile eines Freundes (BattleTag), Klick klappt seine Charaktere auf
+local function fillGroupRow(r, g, open)
+  local c = g.first
+  r.c = c
+  r.group = g.key
+  r.groupNames = {}
+  for _, x in ipairs(g.chars) do r.groupNames[#r.groupNames + 1] = x.c.name end
+  r.icon:ClearAllPoints(); r.icon:SetPoint("LEFT", 7, 0); r.icon:SetSize(14, 14)
+  r.icon:SetTexture(open and "Interface\\Buttons\\UI-MinusButton-Up" or "Interface\\Buttons\\UI-PlusButton-Up")
+  r.icon:SetTexCoord(0, 1, 0, 1); r.icon:SetDesaturated(false)
+  r.name:SetFont(FONT, 13, "")
+  r.name:SetText(g.tag); r.name:SetTextColor(unpack(C.sun))
+  local note = getNote(c)
+  local cnt = #g.chars .. L(" Chars", " chars")
+  if note then cnt = "|cffffcc5c" .. (#note > 14 and (note:sub(1, 13) .. "…") or note) .. "|r · " .. cnt end
+  r.info:SetText(cnt); r.info:SetTextColor(unpack(C.dim))
+  local pl = getProfs(c)
+  for k = 1, 4 do
+    local p = pl[k] and PROF_BY_KEY[pl[k]]
+    if p then r.pi[k]:SetTexture("Interface\\Icons\\" .. p[3]); r.pi[k]:SetDesaturated(false); r.pi[k]:Show()
+    else r.pi[k]:Hide() end
+  end
+  r.info:ClearAllPoints()
+  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, 4) * 16, 0)
+  if r.stripe then r.stripe:Hide() end
+  r:Show()
+end
+
 local function showSuggestions()
   if not box or not sug then return end
   local q = box:GetText() or ""
@@ -591,22 +641,75 @@ local function showSuggestions()
   sug:Show()
 end
 
+local refreshList
 local listOffset = 0
-local listResults = {}
-local function refreshList()
+local listItems = {}
+
+-- Anzeigeliste: Freunde (BattleTag) als aufklappbare Gruppen, Namen ohne BattleTag einzeln
+local function buildItems(q)
+  local res = NP.Search(q, nil, db.showAll)
+  local groups, items = {}, {}
+  for _, r in ipairs(res) do
+    local c = r.c
+    if c.tag then
+      local g = groups[c.tag]
+      if not g then
+        g = { kind = "group", key = "tag:" .. c.tag, tag = c.tag, chars = {}, score = r.score, first = c, name = lower(c.tag) }
+        groups[c.tag] = g
+        items[#items + 1] = g
+      end
+      g.chars[#g.chars + 1] = r
+      if r.score > g.score then g.score = r.score end
+    else
+      items[#items + 1] = { kind = "char", res = r, score = r.score, name = lower(c.name) }
+    end
+  end
+  table.sort(items, function(a, b)
+    if a.score ~= b.score then return a.score > b.score end
+    return a.name < b.name
+  end)
+  local searching = (q or ""):gsub("%s", "") ~= ""
+  local flat, nGroups = {}, 0
+  for _, it in ipairs(items) do
+    if it.kind == "group" then
+      nGroups = nGroups + 1
+      local open = searching or db.open[it.key]
+      flat[#flat + 1] = { kind = "group", g = it, open = open }
+      if open then
+        for _, r in ipairs(it.chars) do flat[#flat + 1] = { kind = "char", res = r, indent = 18 } end
+      end
+    else
+      flat[#flat + 1] = it
+    end
+  end
+  return flat, nGroups, #res
+end
+
+toggleGroup = function(key)
+  db.open[key] = (not db.open[key]) or nil
+  if listFrame and listFrame:IsShown() then refreshList() end
+end
+
+function refreshList()
   local q = listFrame.search:GetText() or ""
   listFrame.placeholder:SetShown(q == "" and not listFrame.search:HasFocus())
-  listResults = NP.Search(q, nil, db.showAll)
-  local maxOff = math.max(0, #listResults - LIST_ROWS)
+  local nGroups, nChars
+  listItems, nGroups, nChars = buildItems(q)
+  local maxOff = math.max(0, #listItems - LIST_ROWS)
   if listOffset > maxOff then listOffset = maxOff end
   if listOffset < 0 then listOffset = 0 end
-  for i = 1, LIST_ROWS do fillRow(listRows[i], listResults[listOffset + i]) end
-  listFrame.count:SetText(#listResults .. L(" Namen", " names"))
+  for i = 1, LIST_ROWS do
+    local it, r = listItems[listOffset + i], listRows[i]
+    if not it then fillRow(r, nil)
+    elseif it.kind == "group" then fillGroupRow(r, it.g, it.open)
+    else fillRow(r, it.res, false, it.indent) end
+  end
+  listFrame.count:SetText(nGroups .. L(" Freunde, ", " friends, ") .. nChars .. L(" Namen", " names"))
   -- schmaler Rollbalken rechts
   local track = listFrame.track
-  if #listResults > LIST_ROWS then
+  if #listItems > LIST_ROWS then
     local h = track:GetHeight()
-    local thumbH = math.max(18, h * LIST_ROWS / #listResults)
+    local thumbH = math.max(18, h * LIST_ROWS / #listItems)
     listFrame.thumb:SetHeight(thumbH)
     listFrame.thumb:ClearAllPoints()
     listFrame.thumb:SetPoint("TOP", track, "TOP", 0, -((h - thumbH) * listOffset / math.max(1, maxOff)))
@@ -614,7 +717,7 @@ local function refreshList()
   else
     track:Hide()
   end
-  listFrame.empty:SetShown(#listResults == 0)
+  listFrame.empty:SetShown(#listItems == 0)
 end
 
 function NP.RefreshAll()
