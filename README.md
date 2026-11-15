@@ -24,7 +24,7 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 
 - **Im Post-Fenster** im Feld "An" ein paar Buchstaben tippen, auch nur vom **Nachnamen** oder vom Namen des Freundes. Es erscheint ein Vorschlagsfenster, **Tab** übernimmt den ersten Treffer, ein Klick übernimmt den gewählten Namen.
 - Der Knopf **Freunde** neben dem Feld öffnet die komplette Liste mit Suche, Klassensymbolen und Mausrad-Blättern.
-- **Notizen:** **Rechtsklick** auf einen Namen (Liste oder Vorschlag) öffnet eine Notiz, z.B. "Schmied, tauscht gern Erz". Sie gilt für alle Charaktere desselben Freundes, wird in der Zeile und im Tooltip angezeigt und ist durchsuchbar.
+- **Notizen und Berufe:** **Rechtsklick** auf einen Namen (Liste oder Vorschlag) öffnet ein Fenster mit einer Notiz (z.B. "tauscht gern Erz") und den Berufen des Freundes zum Anklicken (Bergbau, Kräuterkunde, Kürschnerei, Schmiedekunst, Ingenieurskunst, Alchemie, Schneiderei, Lederverarbeitung, Verzauberkunst, Kochkunst, Erste Hilfe, Angeln). Beides gilt für alle Charaktere desselben Freundes, die Berufe erscheinen als Symbole in der Zeile, alles steht im Tooltip und ist durchsuchbar: "schmied" findet alle Freunde, die Schmiedekunst haben. Das Spiel verrät die Berufe eines Freundes nicht, du trägst sie selbst ein.
 - **Server und Fraktion sind abgesichert:** Vorgeschlagen werden nur Namen, die zu deinem Servertyp (PvE, RP-PvE, PvP ...) und deiner Fraktion passen. Gleichnamige Charaktere auf einem anderen Servertyp oder in der anderen Fraktion werden nicht angeboten, damit Post nicht an die falsche Person geht. Die Nummern in den Servernamen (z.B. `Realm1`, `Realm5`) sind nur Layer desselben Servers und werden ignoriert. Gespeichert wird alles, angezeigt nur, was passt (in der Liste lässt sich "andere Server/Fraktionen" einblenden, grau und mit Warnung).
 - **Automatisch:** Nach dem Login und danach alle 60 Sekunden (Gilde alle 5 Minuten) liest Postillion Freunde, Gruppe und Gilde selbst ein.
 
@@ -35,6 +35,7 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 | `/pp` | Hilfe |
 | `/pp liste [Teil]` | gemerkte Namen anzeigen |
 | `/pp note <Name> \| <Text>` | Notiz zu einem Freund setzen (leerer Text löscht) |
+| `/pp beruf <Name> \| <Beruf, Beruf>` | Berufe eines Freundes eintragen (leer löscht) |
 | `/pp add <Name>` | Namen von Hand merken (gilt für deinen Server und deine Fraktion) |
 | `/pp del <Name>` | Namen vergessen |
 | `/pp scan` | Freunde, Gilde, Gruppe sofort einlesen |
@@ -81,7 +82,7 @@ Postillion quietly records every name the game shows you and stores it permanent
 
 - **In the mail window**, type a few letters into the "To" field, also just of the **last name** or of the friend's name. A suggestion popup appears, **Tab** accepts the first match, a click picks the selected name.
 - The **Friends** button next to the field opens the full list with search, class icons and mouse-wheel scrolling.
-- **Notes:** **right-click** a name (list or suggestion) to add a note, e.g. "blacksmith, likes ore". It applies to all characters of the same friend, shows in the row and tooltip, and is searchable.
+- **Notes and professions:** **right-click** a name (list or suggestion) to open a window with a note (e.g. "likes to trade ore") and the friend's professions to click (Mining, Herbalism, Skinning, Blacksmithing, Engineering, Alchemy, Tailoring, Leatherworking, Enchanting, Cooking, First Aid, Fishing). Both apply to all characters of the same friend, professions show as icons in the row, everything is in the tooltip and searchable: "blacksm" finds every friend who has Blacksmithing. The game does not reveal a friend's professions, so you enter them yourself.
 - **Realm and faction are safeguarded:** only names matching your realm type (PvE, RP-PvE, PvP ...) and your faction are suggested. Same-named characters on another realm type or in the other faction are never offered, so mail does not reach the wrong person. The numbers in realm names (e.g. `Realm1`, `Realm5`) are just layers of the same server and are ignored. Everything is stored, only matching entries are shown (the list can show "other realms/factions", greyed out with a warning).
 - **Automatic:** after login and then every 60 seconds (guild every 5 minutes) Postillion reads friends, group and guild by itself.
 
@@ -92,6 +93,7 @@ Postillion quietly records every name the game shows you and stores it permanent
 | `/pp` | help |
 | `/pp list [part]` | show remembered names |
 | `/pp note <name> \| <text>` | set a note for a friend (empty text deletes) |
+| `/pp prof <name> \| <profession, profession>` | set a friend's professions (empty deletes) |
 | `/pp add <name>` | remember a name by hand (assumed to be on your realm and faction) |
 | `/pp del <name>` | forget a name |
 | `/pp scan` | read friends, guild, group now |

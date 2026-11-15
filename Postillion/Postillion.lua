@@ -26,6 +26,7 @@ local function initDB()
   db.chars = db.chars or {}
   db.hide = db.hide or {}     -- vom Nutzer entfernte Namen (Name|Server)
   db.notes = db.notes or {}   -- Notizen: ["tag:<BattleTag>"] oder ["char:<Name|Server>"]
+  db.profs = db.profs or {}   -- Berufe je Freund (gleicher Schlüssel wie Notizen): {"mining", "tailoring"}
   for k, c in pairs(db.chars) do c.key = c.key or k end
 end
 
@@ -135,6 +136,48 @@ local function setNote(c, text)
   db.notes[tk or ck] = text
 end
 
+-- Berufe (Reihenfolge = Anordnung im Bearbeitungsfenster)
+local PROFS = {
+  { "mining", L("Bergbau", "Mining"), "Trade_Mining" },
+  { "herbalism", L("Kräuterkunde", "Herbalism"), "Trade_Herbalism" },
+  { "skinning", L("Kürschnerei", "Skinning"), "INV_Misc_Pelt_Wolf_01" },
+  { "blacksmithing", L("Schmiedekunst", "Blacksmithing"), "Trade_BlackSmithing" },
+  { "engineering", L("Ingenieurskunst", "Engineering"), "Trade_Engineering" },
+  { "alchemy", L("Alchemie", "Alchemy"), "Trade_Alchemy" },
+  { "tailoring", L("Schneiderei", "Tailoring"), "Trade_Tailoring" },
+  { "leatherworking", L("Lederverarbeitung", "Leatherworking"), "Trade_LeatherWorking" },
+  { "enchanting", L("Verzauberkunst", "Enchanting"), "Trade_Engraving" },
+  { "cooking", L("Kochkunst", "Cooking"), "INV_Misc_Food_15" },
+  { "firstaid", L("Erste Hilfe", "First Aid"), "Spell_Holy_SealOfSacrifice" },
+  { "fishing", L("Angeln", "Fishing"), "Trade_Fishing" },
+}
+local PROF_BY_KEY = {}
+for _, p in ipairs(PROFS) do PROF_BY_KEY[p[1]] = p end
+
+local function getProfs(c)
+  local tk, ck = noteKeys(c)
+  return (tk and db.profs[tk]) or db.profs[ck] or {}
+end
+local function setProfs(c, list)
+  local tk, ck = noteKeys(c)
+  if #list == 0 then list = nil end
+  if tk then db.profs[ck] = nil end
+  db.profs[tk or ck] = list
+end
+-- Eingabetext ("Bergbau, Schmied") -> Schlüsselliste; erkennt Anfang des Namens oder des englischen Schlüssels
+local function parseProfs(text)
+  local out = {}
+  for part in (text or ""):gmatch("[^,;/]+") do
+    local q = lower(part:gsub("^%s+", ""):gsub("%s+$", ""))
+    if q ~= "" then
+      for _, p in ipairs(PROFS) do
+        if lower(p[2]):sub(1, #q) == q or p[1]:sub(1, #q) == q then out[#out + 1] = p[1] break end
+      end
+    end
+  end
+  return out
+end
+
 ----------------------------------------------------------------------
 -- Quellen einlesen
 ----------------------------------------------------------------------
@@ -241,6 +284,12 @@ local function matches(c, q)
   if lab ~= "" and lab:sub(1, #q) == q then return 2 end
   local note = getNote(c)
   if note and #q >= 2 and lower(note):find(q, 1, true) then return 2 end
+  if #q >= 3 then
+    for _, k in ipairs(getProfs(c)) do
+      local p = PROF_BY_KEY[k]
+      if p and (lower(p[2]):sub(1, #q) == q or k:sub(1, #q) == q) then return 2 end
+    end
+  end
   if #q >= 3 and nm:find(q, 1, true) then return 1 end
   return nil
 end
@@ -359,29 +408,88 @@ end
 
 local ROW_H = 26
 
--- Notiz bearbeiten (Rechtsklick auf einen Namen)
-StaticPopupDialogs["POSTILLION_NOTE"] = {
-  text = "%s",
-  button1 = ACCEPT or "OK", button2 = CANCEL or "Cancel",
-  hasEditBox = true, maxLetters = 80, timeout = 0, whileDead = true, hideOnEscape = true,
-  OnShow = function(self, c)
-    local eb = self.editBox or self.EditBox
-    if eb then eb:SetText(c and getNote(c) or ""); eb:HighlightText() end
-  end,
-  OnAccept = function(self, c)
-    local eb = self.editBox or self.EditBox
-    if c and eb then setNote(c, eb:GetText()); if NP.RefreshAll then NP.RefreshAll() end end
-  end,
-  EditBoxOnEnterPressed = function(eb)
-    local parent = eb:GetParent()
-    local c = parent.data
-    if c then setNote(c, eb:GetText()); if NP.RefreshAll then NP.RefreshAll() end end
-    parent:Hide()
-  end,
-}
+-- Bearbeitungsfenster (Rechtsklick auf einen Namen): Notiz + Berufe
+local editFrame
+local function buildEdit()
+  local f = Panel("PostillionEdit")
+  f:SetFrameStrata("FULLSCREEN_DIALOG")
+  f:SetSize(380, 290)
+  f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
+  f:SetBackdropBorderColor(unpack(C.sun))
+  f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function(s) s:StartMoving() end)
+  f:SetScript("OnDragStop", function(s) s:StopMovingOrSizing() end)
+  f:Hide()
+  if UISpecialFrames then table.insert(UISpecialFrames, "PostillionEdit") end
+  f.title = Text(f, 15, C.sun); f.title:SetPoint("TOPLEFT", 14, -12)
+  f.sub = Text(f, 10, C.dim); f.sub:SetPoint("TOPLEFT", 14, -32)
+  local nl = Text(f, 11, C.dim); nl:SetPoint("TOPLEFT", 14, -56); nl:SetText(L("Notiz", "Note"))
+  local eb = CreateFrame("EditBox", nil, f, "BackdropTemplate")
+  eb:SetHeight(24); eb:SetPoint("TOPLEFT", 14, -72); eb:SetPoint("TOPRIGHT", -14, -72)
+  Flat(eb, C.field)
+  eb:SetFont(FONT, 12, ""); eb:SetTextColor(unpack(C.text)); eb:SetAutoFocus(false)
+  eb:SetMaxLetters(80); eb:SetTextInsets(8, 8, 0, 0)
+  eb:SetScript("OnEscapePressed", function() f:Hide() end)
+  eb:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+  eb:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(unpack(C.sun)) end)
+  eb:SetScript("OnEditFocusLost", function(s) s:SetBackdropBorderColor(unpack(C.edge)) end)
+  f.note = eb
+  local pl = Text(f, 11, C.dim); pl:SetPoint("TOPLEFT", 14, -108); pl:SetText(L("Berufe (anklicken)", "Professions (click)"))
+  f.sel = {}
+  f.btns = {}
+  for i, p in ipairs(PROFS) do
+    local col, row = (i - 1) % 4, math.floor((i - 1) / 4)
+    local b = CreateFrame("Button", nil, f, "BackdropTemplate")
+    b:SetSize(80, 48)
+    b:SetPoint("TOPLEFT", 14 + col * 87, -126 - row * 54)
+    Flat(b, C.card)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(24, 24); b.icon:SetPoint("TOP", 0, -4)
+    b.icon:SetTexture("Interface\\Icons\\" .. p[3]); b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.lab = Text(b, 9, C.text); b.lab:SetJustifyH("CENTER")
+    b.lab:SetPoint("BOTTOM", 0, 4); b.lab:SetText(p[2])
+    local function paint()
+      if f.sel[p[1]] then b:SetBackdropColor(unpack(C.cardHover)); b:SetBackdropBorderColor(unpack(C.sun)); b.icon:SetAlpha(1)
+      else b:SetBackdropColor(unpack(C.card)); b:SetBackdropBorderColor(unpack(C.edge)); b.icon:SetAlpha(0.45) end
+    end
+    b.paint = paint
+    b:SetScript("OnClick", function() f.sel[p[1]] = not f.sel[p[1]] or nil; paint() end)
+    f.btns[i] = b
+  end
+  local ok = FlatButton(f, L("Speichern", "Save"), 110, 24, function()
+    local c = f.c
+    if c then
+      setNote(c, f.note:GetText())
+      local list = {}
+      for _, p in ipairs(PROFS) do if f.sel[p[1]] then list[#list + 1] = p[1] end end
+      setProfs(c, list)
+      if NP.RefreshAll then NP.RefreshAll() end
+    end
+    f:Hide()
+  end)
+  ok:SetPoint("BOTTOMRIGHT", -14, 12)
+  ok:SetBackdropColor(unpack(C.sun)); ok:SetBackdropBorderColor(unpack(C.sun)); ok.label:SetTextColor(0.13, 0.1, 0.04)
+  ok:SetScript("OnLeave", function(self) self:SetBackdropColor(unpack(C.sun)); self:SetBackdropBorderColor(unpack(C.sun)) end)
+  ok:SetScript("OnEnter", function(self) self:SetBackdropColor(1, 0.88, 0.55, 1) end)
+  local cancel = FlatButton(f, L("Abbrechen", "Cancel"), 100, 24, function() f:Hide() end)
+  cancel:SetPoint("RIGHT", ok, "LEFT", -8, 0)
+  local close = FlatButton(f, "×", 22, 22, function() f:Hide() end)
+  close:SetPoint("TOPRIGHT", -8, -8)
+  return f
+end
+
 local function editNote(c)
-  StaticPopup_Show("POSTILLION_NOTE", L("Notiz zu ", "Note for ") .. c.name
-    .. L(" (leer = löschen):", " (empty = delete):"), nil, c)
+  editFrame = editFrame or buildEdit()
+  local f = editFrame
+  f.c = c
+  f.title:SetText(c.name)
+  f.sub:SetText(friendLabel(c) and (friendLabel(c) .. " · " .. worldLabel(c)) or worldLabel(c))
+  f.note:SetText(getNote(c) or ""); f.note:SetCursorPosition(0)
+  f.sel = {}
+  for _, k in ipairs(getProfs(c)) do f.sel[k] = true end
+  for _, b in ipairs(f.btns) do b.paint() end
+  f:Show()
+  f.note:SetFocus()
 end
 
 -- Zeile: Klassensymbol, Name in Klassenfarbe, rechts Freund/Stufe, bei Fremden Server/Fraktion in Rot
@@ -398,6 +506,13 @@ local function makeRow(parent, i, onClick, top)
   b.icon:SetSize(16, 16); b.icon:SetPoint("LEFT", 7, 0)
   b.name = Text(b, 13)
   b.name:SetPoint("LEFT", b.icon, "RIGHT", 6, 0)
+  b.pi = {}
+  for k = 1, 4 do
+    local t = b:CreateTexture(nil, "ARTWORK")
+    t:SetSize(14, 14); t:SetPoint("RIGHT", -7 - (k - 1) * 16, 0)
+    t:SetTexCoord(0.08, 0.92, 0.08, 0.92); t:Hide()
+    b.pi[k] = t
+  end
   b.info = Text(b, 11, C.dim)
   b.info:SetJustifyH("RIGHT"); b.info:SetPoint("RIGHT", -7, 0)
   b.name:SetPoint("RIGHT", b.info, "LEFT", -6, 0)
@@ -417,9 +532,12 @@ local function makeRow(parent, i, onClick, top)
     local lab = friendLabel(c)
     if lab then GameTooltip:AddLine(lab, 1, 1, 1) end
     GameTooltip:AddLine(worldLabel(c), 0.62, 0.6, 0.72)
+    local names = {}
+    for _, k in ipairs(getProfs(c)) do if PROF_BY_KEY[k] then names[#names + 1] = PROF_BY_KEY[k][2] end end
+    if #names > 0 then GameTooltip:AddLine(table.concat(names, ", "), 0.47, 0.87, 0.7, true) end
     local note = getNote(c)
     if note then GameTooltip:AddLine(note, 1, 0.8, 0.36, true) end
-    GameTooltip:AddLine(L("Rechtsklick = Notiz", "Right-click = note"), 0.62, 0.6, 0.72)
+    GameTooltip:AddLine(L("Rechtsklick = Notiz und Berufe", "Right-click = note and professions"), 0.62, 0.6, 0.72)
     GameTooltip:Show()
   end)
   b:HookScript("OnLeave", function() GameTooltip:Hide() end)
@@ -448,6 +566,15 @@ local function fillRow(r, res, first)
   else
     r.info:SetText(worldLabel(c)); r.info:SetTextColor(unpack(C.red))
   end
+  local pl = getProfs(c)
+  for k = 1, 4 do
+    local p = pl[k] and PROF_BY_KEY[pl[k]]
+    if p then
+      r.pi[k]:SetTexture("Interface\\Icons\\" .. p[3]); r.pi[k]:SetDesaturated(not ok); r.pi[k]:Show()
+    else r.pi[k]:Hide() end
+  end
+  r.info:ClearAllPoints()
+  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, 4) * 16, 0)
   if r.stripe then if first then r.stripe:Show() else r.stripe:Hide() end end
   r:Show()
 end
@@ -503,7 +630,7 @@ local function buildUI()
   -- Vorschlagsfenster direkt unter dem Empfängerfeld
   sug = Panel("PostillionSuggest")
   sug:SetFrameStrata("DIALOG")
-  sug:SetWidth(350)
+  sug:SetWidth(400)
   sug:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -4, -2)
   sug:SetBackdropBorderColor(unpack(C.sun))
   sug:Hide()
@@ -511,7 +638,7 @@ local function buildUI()
   for i = 1, ROWS do rows[i] = makeRow(sug, i, chooseName) end
   local hint = Text(sug, 10, C.dim)
   hint:SetPoint("BOTTOMLEFT", 8, 5)
-  hint:SetText(L("Tab = erster Treffer · Klick = übernehmen · Rechtsklick = Notiz", "Tab = first match · click = pick · right-click = note"))
+  hint:SetText(L("Tab = erster Treffer · Klick = übernehmen · Rechtsklick = Notiz/Berufe", "Tab = first match · click = pick · right-click = note/professions"))
 
   box:HookScript("OnTextChanged", function(_, userInput)
     if userInput then showSuggestions() end
@@ -548,7 +675,7 @@ local function buildUI()
   -- Listenfenster
   listFrame = Panel("PostillionList")
   listFrame:SetFrameStrata("DIALOG")
-  listFrame:SetSize(340, 40 + 34 + LIST_ROWS * ROW_H + 30)
+  listFrame:SetSize(400, 40 + 34 + LIST_ROWS * ROW_H + 30)
   listFrame:SetPoint("TOPLEFT", MailFrame or box, "TOPRIGHT", 6, -20)
   listFrame:SetMovable(true); listFrame:EnableMouse(true)
   listFrame:RegisterForDrag("LeftButton")
@@ -726,6 +853,8 @@ SlashCmdList["POSTILLION"] = function(msg)
           "Remembers friends' character names and autocompletes them in the mail field, also offline."))
     say(L("/pp liste [Teil]  zeigt gemerkte Namen", "/pp list [part]  shows remembered names"))
     say(L("/pp add <Name> [Freundesname]  Name von Hand merken", "/pp add <name> [friend name]  remember a name by hand"))
+    say(L("/pp beruf <Name> | <Beruf, Beruf>  Berufe eintragen (leer = löschen)",
+          "/pp prof <name> | <profession, profession>  set professions (empty = delete)"))
     say(L("/pp note <Name> | <Text>  Notiz zu einem Freund (leer = löschen; im Fenster: Rechtsklick)",
           "/pp note <name> | <text>  note for a friend (empty = delete; in the window: right-click)"))
     say(L("/pp del <Name>  Namen vergessen", "/pp del <name>  forget a name"))
@@ -773,6 +902,20 @@ SlashCmdList["POSTILLION"] = function(msg)
     if not hit then say(L("nicht gefunden: ", "not found: ") .. name) return end
     setNote(hit, text)
     say((text ~= "" and L("Notiz gespeichert für ", "note saved for ") or L("Notiz gelöscht für ", "note removed for ")) .. hit.name)
+  elseif cmd == "beruf" or cmd == "berufe" or cmd == "prof" then
+    local name, text = rest:match("^(.-)%s*|%s*(.*)$")
+    if not name then name, text = rest, "" end
+    local want = lower((name:gsub("%-[^%- ]+$", "")))
+    local hit
+    for _, c in pairs(db.chars) do
+      if lower(c.name) == want and (db.showAll or sameWorld(c)) then hit = c break end
+    end
+    if not hit then say(L("nicht gefunden: ", "not found: ") .. name) return end
+    local list = parseProfs(text)
+    setProfs(hit, list)
+    local names = {}
+    for _, k in ipairs(list) do names[#names + 1] = PROF_BY_KEY[k][2] end
+    say(hit.name .. ": " .. (#names > 0 and table.concat(names, ", ") or L("keine Berufe", "no professions")))
   elseif cmd == "auto" then
     db.auto = (db.auto == false)
     say(db.auto and L("Automatisches Einlesen im Hintergrund AN (Freunde alle 60 s, Gilde alle 5 min).",

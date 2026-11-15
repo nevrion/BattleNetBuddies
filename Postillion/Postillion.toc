@@ -3,7 +3,7 @@
 ## Notes: Mail recipient autocomplete for Battle.net friends, also when offline. Remembers character names (first and last name) while they are online. Command: /pp
 ## Notes-deDE: Post-Empfänger-Vervollständigung für Battle.net-Freunde, auch offline. Merkt sich Charakternamen (Vor- und Nachname), solange sie online sind. Befehl: /pp
 ## Author: nevrion
-## Version: 0.7.0
+## Version: 0.8.0
 ## SavedVariables: PostillionDB, NevPostDB
 
 Postillion.lua
