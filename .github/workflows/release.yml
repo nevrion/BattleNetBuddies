@@ -1,0 +1,21 @@
+# Beim Push eines Tags (z.B. v0.9.0): Addon packen und als GitHub-Release veröffentlichen.
+# Der Zip-Name endet auf -forever, weil WoWUp das Release-Zip nach diesem Zusatz auswählt.
+# CurseForge zieht den Tag über die Quellcode-Verknüpfung des Projekts selbst (kein Token nötig).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@v2
+        with:
+          args: -d -n "{package-name}-{project-version}-forever"
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
