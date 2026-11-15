@@ -25,6 +25,8 @@ local function initDB()
   -- [kleingeschriebener Name|Server] = {name, realm, faction, src, tag, acc, class, level, seen}
   db.chars = db.chars or {}
   db.hide = db.hide or {}     -- vom Nutzer entfernte Namen (Name|Server)
+  db.notes = db.notes or {}   -- Notizen: ["tag:<BattleTag>"] oder ["char:<Name|Server>"]
+  for k, c in pairs(db.chars) do c.key = c.key or k end
 end
 
 -- Server und Fraktion vergleichbar machen
@@ -106,6 +108,7 @@ local function remember(name, src, tag, acc, class, level, realm, faction)
   if acc and acc ~= "" then c.acc = acc end
   if class and class ~= "" then c.class = class end
   if level and tonumber(level) and tonumber(level) > 0 then c.level = tonumber(level) end
+  c.key = key
   c.seen = time()
 end
 
@@ -114,6 +117,22 @@ local function friendLabel(c)
   if c.acc and c.acc ~= "" then return c.acc end
   if c.tag then return (c.tag:gsub("#.*$", "")) end
   return nil
+end
+
+-- Notizen gelten pro Freund (BattleTag, dann haben alle seine Charaktere dieselbe), sonst pro Charakter
+local function noteKeys(c)
+  return c.tag and ("tag:" .. c.tag) or nil, "char:" .. (c.key or lower(c.name))
+end
+local function getNote(c)
+  local tk, ck = noteKeys(c)
+  return (tk and db.notes[tk]) or db.notes[ck]
+end
+local function setNote(c, text)
+  local tk, ck = noteKeys(c)
+  text = text and text:gsub("^%s+", ""):gsub("%s+$", "") or ""
+  if text == "" then text = nil end
+  if tk then db.notes[ck] = nil end
+  db.notes[tk or ck] = text
 end
 
 ----------------------------------------------------------------------
@@ -220,6 +239,8 @@ local function matches(c, q)
   end
   local lab = lower(friendLabel(c))
   if lab ~= "" and lab:sub(1, #q) == q then return 2 end
+  local note = getNote(c)
+  if note and #q >= 2 and lower(note):find(q, 1, true) then return 2 end
   if #q >= 3 and nm:find(q, 1, true) then return 1 end
   return nil
 end
@@ -314,6 +335,8 @@ end
 
 local function describe(c)
   local parts = {}
+  local note = getNote(c)
+  if note then parts[#parts + 1] = "|cffffcc5c" .. (#note > 20 and (note:sub(1, 19) .. "…") or note) .. "|r" end
   local lab = friendLabel(c)
   if lab then parts[#parts + 1] = lab end
   if c.level then parts[#parts + 1] = L("Stufe ", "Lvl ") .. c.level end
@@ -336,6 +359,31 @@ end
 
 local ROW_H = 26
 
+-- Notiz bearbeiten (Rechtsklick auf einen Namen)
+StaticPopupDialogs["POSTILLION_NOTE"] = {
+  text = "%s",
+  button1 = ACCEPT or "OK", button2 = CANCEL or "Cancel",
+  hasEditBox = true, maxLetters = 80, timeout = 0, whileDead = true, hideOnEscape = true,
+  OnShow = function(self, c)
+    local eb = self.editBox or self.EditBox
+    if eb then eb:SetText(c and getNote(c) or ""); eb:HighlightText() end
+  end,
+  OnAccept = function(self, c)
+    local eb = self.editBox or self.EditBox
+    if c and eb then setNote(c, eb:GetText()); if NP.RefreshAll then NP.RefreshAll() end end
+  end,
+  EditBoxOnEnterPressed = function(eb)
+    local parent = eb:GetParent()
+    local c = parent.data
+    if c then setNote(c, eb:GetText()); if NP.RefreshAll then NP.RefreshAll() end end
+    parent:Hide()
+  end,
+}
+local function editNote(c)
+  StaticPopup_Show("POSTILLION_NOTE", L("Notiz zu ", "Note for ") .. c.name
+    .. L(" (leer = löschen):", " (empty = delete):"), nil, c)
+end
+
 -- Zeile: Klassensymbol, Name in Klassenfarbe, rechts Freund/Stufe, bei Fremden Server/Fraktion in Rot
 local function makeRow(parent, i, onClick, top)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -356,7 +404,25 @@ local function makeRow(parent, i, onClick, top)
   b.name:SetWordWrap(false)
   b:SetScript("OnEnter", function(self) self:SetBackdropColor(unpack(C.cardHover)); self:SetBackdropBorderColor(unpack(C.sky)) end)
   b:SetScript("OnLeave", function(self) self:SetBackdropColor(unpack(C.card)); self:SetBackdropBorderColor(unpack(C.card)) end)
-  b:SetScript("OnClick", function(self) if self.c then onClick(self.c) end end)
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  b:SetScript("OnClick", function(self, button)
+    if not self.c then return end
+    if button == "RightButton" then editNote(self.c) else onClick(self.c) end
+  end)
+  b:HookScript("OnEnter", function(self)
+    local c = self.c
+    if not c then return end
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText(c.name, classColor(c.class))
+    local lab = friendLabel(c)
+    if lab then GameTooltip:AddLine(lab, 1, 1, 1) end
+    GameTooltip:AddLine(worldLabel(c), 0.62, 0.6, 0.72)
+    local note = getNote(c)
+    if note then GameTooltip:AddLine(note, 1, 0.8, 0.36, true) end
+    GameTooltip:AddLine(L("Rechtsklick = Notiz", "Right-click = note"), 0.62, 0.6, 0.72)
+    GameTooltip:Show()
+  end)
+  b:HookScript("OnLeave", function() GameTooltip:Hide() end)
   return b
 end
 
@@ -424,6 +490,11 @@ local function refreshList()
   listFrame.empty:SetShown(#listResults == 0)
 end
 
+function NP.RefreshAll()
+  if listFrame and listFrame:IsShown() then refreshList() end
+  if sug and sug:IsShown() then showSuggestions() end
+end
+
 local function buildUI()
   box = _G.SendMailNameEditBox
   if not box or NP.uiBuilt then return end
@@ -432,7 +503,7 @@ local function buildUI()
   -- Vorschlagsfenster direkt unter dem Empfängerfeld
   sug = Panel("PostillionSuggest")
   sug:SetFrameStrata("DIALOG")
-  sug:SetWidth(310)
+  sug:SetWidth(350)
   sug:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -4, -2)
   sug:SetBackdropBorderColor(unpack(C.sun))
   sug:Hide()
@@ -440,7 +511,7 @@ local function buildUI()
   for i = 1, ROWS do rows[i] = makeRow(sug, i, chooseName) end
   local hint = Text(sug, 10, C.dim)
   hint:SetPoint("BOTTOMLEFT", 8, 5)
-  hint:SetText(L("Tab = erster Treffer · Klick = übernehmen", "Tab = first match · click = pick"))
+  hint:SetText(L("Tab = erster Treffer · Klick = übernehmen · Rechtsklick = Notiz", "Tab = first match · click = pick · right-click = note"))
 
   box:HookScript("OnTextChanged", function(_, userInput)
     if userInput then showSuggestions() end
@@ -655,6 +726,8 @@ SlashCmdList["POSTILLION"] = function(msg)
           "Remembers friends' character names and autocompletes them in the mail field, also offline."))
     say(L("/pp liste [Teil]  zeigt gemerkte Namen", "/pp list [part]  shows remembered names"))
     say(L("/pp add <Name> [Freundesname]  Name von Hand merken", "/pp add <name> [friend name]  remember a name by hand"))
+    say(L("/pp note <Name> | <Text>  Notiz zu einem Freund (leer = löschen; im Fenster: Rechtsklick)",
+          "/pp note <name> | <text>  note for a friend (empty = delete; in the window: right-click)"))
     say(L("/pp del <Name>  Namen vergessen", "/pp del <name>  forget a name"))
     say(L("/pp alle  Liste auch mit Namen anderer Server/Fraktionen (grau) ein- oder ausschalten",
           "/pp all  toggle showing names from other realms/factions (grey) in the list"))
@@ -689,6 +762,17 @@ SlashCmdList["POSTILLION"] = function(msg)
       end
     end
     say((found and L("vergessen: ", "forgotten: ") or L("nicht gefunden: ", "not found: ")) .. rest)
+  elseif cmd == "note" or cmd == "notiz" then
+    local name, text = rest:match("^(.-)%s*|%s*(.*)$")
+    if not name then name, text = rest, "" end
+    local want = lower((name:gsub("%-[^%- ]+$", "")))
+    local hit
+    for _, c in pairs(db.chars) do
+      if lower(c.name) == want and (db.showAll or sameWorld(c)) then hit = c break end
+    end
+    if not hit then say(L("nicht gefunden: ", "not found: ") .. name) return end
+    setNote(hit, text)
+    say((text ~= "" and L("Notiz gespeichert für ", "note saved for ") or L("Notiz gelöscht für ", "note removed for ")) .. hit.name)
   elseif cmd == "auto" then
     db.auto = (db.auto == false)
     say(db.auto and L("Automatisches Einlesen im Hintergrund AN (Freunde alle 60 s, Gilde alle 5 min).",
