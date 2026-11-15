@@ -56,6 +56,10 @@ Vor dem Test `/console scriptErrors 1` eingeben, dann erscheint bei einem Lua-Fe
 - Ein Freund, den das Addon nie online gesehen hat, ist unbekannt. Mit `/pp add` lässt er sich von Hand nachtragen.
 - Das Addon ist für die Namensstruktur von WoW Forever gebaut (Server wie `...Realm5PvE`); auf anderen Spielversionen wird der gesamte Servername verglichen.
 
+## Lizenz
+
+[MIT](LICENSE). Du darfst das Addon frei nutzen, ändern und weitergeben, der Urhebervermerk muss bleiben.
+
 ---
 
 # English
@@ -113,3 +117,7 @@ Enter `/console scriptErrors 1` before testing; a Lua error then opens a window.
 
 - A friend the addon has never seen online is unknown. Add them by hand with `/pp add`.
 - Built for the naming of WoW Forever (realms like `...Realm5PvE`); on other game versions the full realm name is compared.
+
+## License
+
+[MIT](LICENSE). You may freely use, modify and redistribute the addon; the copyright notice must stay.
