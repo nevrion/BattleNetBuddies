@@ -11,7 +11,8 @@ local DE = (GetLocale and GetLocale() == "deDE")
 local function L(de, en) return DE and de or en end
 
 local ROWS = 8          -- Zeilen im Vorschlagsfenster
-local LIST_ROWS = 15    -- Zeilen in der vollständigen Liste
+local LIST_ROWS = 15
+local WIN_W = 480       -- Breite des Hauptfensters    -- Zeilen in der vollständigen Liste
 
 local db
 
@@ -838,7 +839,7 @@ local setInfo
 
 local function Check(parent, label, get, set)
   local b = CreateFrame("Button", nil, parent)
-  b:SetSize(376, 20)
+  b:SetSize(WIN_W - 24, 20)
   b.box = CreateFrame("Frame", nil, b, "BackdropTemplate")
   b.box:SetSize(16, 16); b.box:SetPoint("LEFT", 0, 0)
   Flat(b.box, C.field)
@@ -899,7 +900,7 @@ local function buildMain()
   local H = 40 + 28 + 34 + LIST_ROWS * ROW_H + 40
   listFrame = Panel("PostillionList")
   listFrame:SetFrameStrata("DIALOG")
-  listFrame:SetSize(400, H)
+  listFrame:SetSize(WIN_W, H)
   listFrame:SetMovable(true); listFrame:EnableMouse(true)
   listFrame:RegisterForDrag("LeftButton")
   listFrame:SetScript("OnDragStart", function(s) s:StartMoving() end)
@@ -985,7 +986,7 @@ local function buildMain()
   head(L("Allgemein", "General"), -8)
   local function subline(text, y)
     local t = Text(pageSet, 10, C.dim)
-    t:SetPoint("TOPLEFT", 36, y); t:SetText(text)
+    t:SetPoint("TOPLEFT", 36, y); t:SetWidth(WIN_W - 48); t:SetText(text)
   end
   local c1 = Check(pageSet, L("Minimap-Button anzeigen", "Show minimap button"),
     function() return not db.mmHide end,
@@ -1042,7 +1043,7 @@ local function buildMain()
 
   head(L("Befehle", "Commands"), -282)
   local cmds = Text(pageSet, 10, C.dim)
-  cmds:SetPoint("TOPLEFT", 12, -304); cmds:SetWidth(376); cmds:SetJustifyV("TOP")
+  cmds:SetPoint("TOPLEFT", 12, -304); cmds:SetWidth(WIN_W - 24); cmds:SetJustifyV("TOP")
   if cmds.SetSpacing then cmds:SetSpacing(3) end
   cmds:SetText(table.concat({
     "|cffffcc5c/pp|r  " .. L("Fenster öffnen", "open the window"),

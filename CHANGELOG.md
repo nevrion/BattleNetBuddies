@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.2
+- **EN:** The main window is wider so the texts in the settings fit inside the frame.
+- **DE:** Das Hauptfenster ist breiter, damit die Texte in den Einstellungen in den Rahmen passen.
+
 ## 0.11.1
 - **EN:** Server types are written properly (PvE, PvP, RP-PvE) and the faction is shown as its crest instead of the word Horde/Alliance.
 - **DE:** Servertypen stehen in richtiger Schreibweise (PvE, PvP, RP-PvE), und die Fraktion erscheint als Wappen statt als Wort Horde/Allianz.
