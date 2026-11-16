@@ -1,7 +1,7 @@
 -- Postillion: Post-Empfänger vervollständigen, auch für Battle.net-Freunde, die offline sind.
 -- Idee: Der Charaktername eines Battle.net-Freundes ist nur sichtbar, solange er online ist.
--- Wir merken uns jeden Namen, den wir je gesehen haben (Freunde, Gilde, Gruppe, Flüstern,
--- Post-Absender, früher angeschriebene Empfänger) und bieten sie im Empfängerfeld der Post an.
+-- Wir merken uns die Charakternamen deiner Freunde (Battle.net-Freunde, optional die normale Freundesliste)
+-- und bieten sie im Empfängerfeld der Post an. Gilde, Gruppe, Flüstern und Post-Absender werden nicht erfasst.
 
 local ADDON = "Postillion"
 local NP = {}
@@ -11,7 +11,7 @@ local DE = (GetLocale and GetLocale() == "deDE")
 local function L(de, en) return DE and de or en end
 
 local ROWS = 8          -- Zeilen im Vorschlagsfenster
-local LIST_ROWS = 14    -- Zeilen in der vollständigen Liste
+local LIST_ROWS = 15    -- Zeilen in der vollständigen Liste
 
 local db
 
@@ -74,12 +74,15 @@ local function worldLabel(c)
 end
 
 -- Quelle: höhere Zahl = vertrauenswürdiger bzw. wichtiger für die Sortierung
-local SRC_RANK = { freund = 5, manuell = 4, post = 3, gilde = 2, gruppe = 2, fluestern = 2, liste = 3 }
+local SRC_RANK = { freund = 5, manuell = 4, liste = 3 }
 
--- Quellen im selben Spiel wie ich (Gilde, Gruppe, Flüstern, Post, Freundesliste): Server und
+-- Quellen im selben Spiel wie ich (Freundesliste, Handeinträge): Server und
 -- Fraktion sind bekannt oder gleich meiner. Battle.net-Freunde liefern beides selbst mit.
 local function remember(name, src, tag, acc, class, level, realm, faction)
   if not name or not db then return end
+  -- nur echte Freunde: Battle.net (freund), normale Freundesliste (liste) und Handeinträge (manuell);
+  -- Gilde, Gruppe, Flüstern und Post-Absender werden bewusst nicht mehr erfasst
+  if src ~= "freund" and src ~= "liste" and src ~= "manuell" then return end
   local n, r = name:match("^(.-)%-([^%- ]+)$")
   n = n or name
   realm = realm or r
@@ -104,6 +107,7 @@ local function remember(name, src, tag, acc, class, level, realm, faction)
   end
   if #n > #(c.name or "") then c.name = n end
   if not c.src or (SRC_RANK[src] or 0) >= (SRC_RANK[c.src] or 0) then c.src = src end
+  if src == "freund" then c.bn = true elseif src == "liste" then c.fl = true elseif src == "manuell" then c.manual = true end
   if realm and realm ~= "" then c.realm = realm; c.realmKey = rk end
   if fk then c.faction = fk end
   if tag and tag ~= "" then c.tag = tag end
@@ -148,10 +152,8 @@ local PROFS = {
   { "tailoring", L("Schneiderei", "Tailoring"), "Trade_Tailoring" },
   { "leatherworking", L("Lederverarbeitung", "Leatherworking"), "Trade_LeatherWorking" },
   { "enchanting", L("Verzauberkunst", "Enchanting"), "Trade_Engraving" },
-  { "cooking", L("Kochkunst", "Cooking"), "INV_Misc_Food_15" },
-  { "firstaid", L("Erste Hilfe", "First Aid"), "Spell_Holy_SealOfSacrifice" },
-  { "fishing", L("Angeln", "Fishing"), "Trade_Fishing" },
 }
+local MAX_PROFS = 2   -- höchstens zwei Hauptberufe pro Freund
 local PROF_BY_KEY = {}
 for _, p in ipairs(PROFS) do PROF_BY_KEY[p[1]] = p end
 
@@ -161,6 +163,7 @@ local function getProfs(c)
 end
 local function setProfs(c, list)
   local tk, ck = noteKeys(c)
+  while #list > MAX_PROFS do table.remove(list) end
   if #list == 0 then list = nil end
   if tk then db.profs[ck] = nil end
   db.profs[tk or ck] = list
@@ -172,11 +175,34 @@ local function parseProfs(text)
     local q = lower(part:gsub("^%s+", ""):gsub("%s+$", ""))
     if q ~= "" then
       for _, p in ipairs(PROFS) do
-        if lower(p[2]):sub(1, #q) == q or p[1]:sub(1, #q) == q then out[#out + 1] = p[1] break end
+        if lower(p[2]):sub(1, #q) == q or p[1]:sub(1, #q) == q then
+          if #out < MAX_PROFS then out[#out + 1] = p[1] end
+          break
+        end
       end
     end
   end
   return out
+end
+
+-- Einmalige Aufräumarbeit (0.11.0): Namen aus Gilde, Gruppe, Flüstern und Post entfernen, reine
+-- Ingame-Freunde (ohne BattleTag) als solche markieren, Sekundärberufe streichen, auf 2 Berufe kürzen
+function NP.Migrate()
+  if not db or (db.v or 0) >= 3 then return end
+  for key, c in pairs(db.chars) do
+    local src = c.src
+    if src == "freund" and not c.tag then c.src = "liste"; c.fl = true; c.bn = nil; c.acc = nil
+    elseif src == "freund" then c.bn = true
+    elseif src == "liste" then c.fl = true
+    elseif src == "manuell" then c.manual = true
+    else db.chars[key] = nil end
+  end
+  for key, list in pairs(db.profs) do
+    local out = {}
+    for _, k in ipairs(list) do if PROF_BY_KEY[k] and #out < MAX_PROFS then out[#out + 1] = k end end
+    db.profs[key] = (#out > 0) and out or nil
+  end
+  db.v = 3
 end
 
 ----------------------------------------------------------------------
@@ -194,7 +220,10 @@ local function scanBattleNet()
           if g and g.characterName and g.characterName ~= "" then
             -- nur WoW-Charaktere (andere Spiele haben keinen Post)
             if not g.clientProgram or g.clientProgram == "WoW" or g.clientProgram == "WoWC" then
-              remember(g.characterName, "freund", info.battleTag, info.accountName, g.className, g.characterLevel,
+              -- ohne BattleTag meldet Forever reine Ingame-Charakterfreunde über diese Liste
+              local real = info.battleTag and info.battleTag ~= ""
+              remember(g.characterName, real and "freund" or "liste", real and info.battleTag or nil,
+                real and info.accountName or nil, g.className, g.characterLevel,
                 g.realmName or g.realmDisplayName, g.factionName)
               n = n + 1
             end
@@ -218,7 +247,8 @@ local function scanBattleNet()
     for i = 1, (BNGetNumFriends() or 0) do
       local _, accName, tag, _, toon, _, client, isOnline = BNGetFriendInfo(i)
       if isOnline and toon and toon ~= "" and (client == "WoW" or client == "WoWC" or client == nil) then
-        remember(toon, "freund", tag, accName) -- alte API liefert Server/Fraktion nicht
+        local real = tag and tag ~= ""
+        remember(toon, real and "freund" or "liste", real and tag or nil, real and accName or nil) -- alte API: kein Server/Fraktion
         n = n + 1
       end
     end
@@ -235,38 +265,8 @@ local function scanFriendList()
   end
 end
 
-local function scanGuild()
-  if not (IsInGuild and IsInGuild()) or not GetNumGuildMembers then return end
-  for i = 1, (GetNumGuildMembers() or 0) do
-    local name, _, _, level, class = GetGuildRosterInfo(i)
-    if name then remember(name, "gilde", nil, nil, class, level) end
-  end
-end
-
-local function scanGroup()
-  local prefix, count
-  if IsInRaid and IsInRaid() then prefix, count = "raid", GetNumGroupMembers()
-  elseif IsInGroup and IsInGroup() then prefix, count = "party", GetNumGroupMembers() - 1
-  else return end
-  for i = 1, count or 0 do
-    local u = prefix .. i
-    if UnitExists(u) and UnitIsPlayer(u) then
-      local nm = (GetUnitName and GetUnitName(u, true)) or UnitName(u)
-      remember(nm, "gruppe", nil, nil, UnitClass(u), UnitLevel(u), nil, UnitFactionGroup(u))
-    end
-  end
-end
-
-local function scanInbox()
-  if not GetInboxNumItems then return end
-  for i = 1, (GetInboxNumItems() or 0) do
-    local _, _, sender = GetInboxHeaderInfo(i)
-    if sender then remember(sender, "post") end
-  end
-end
-
 function NP.ScanAll()
-  scanBattleNet(); scanFriendList(); scanGuild(); scanGroup()
+  scanBattleNet(); scanFriendList()
 end
 
 ----------------------------------------------------------------------
@@ -297,13 +297,18 @@ local function matches(c, q)
   return nil
 end
 
+local function visibleSource(c)
+  return c.bn or c.manual or (c.fl and db.showIngame) or false
+end
+
 function NP.Search(q, max, all)
   q = lower((q or ""):gsub("^%s+", ""):gsub("%s+$", ""))
   local out = {}
   for _, c in pairs(db.chars) do
     local score = matches(c, q)
-    -- nur Namen von meinem Server und meiner Fraktion, sonst geht die Post an die falsche Person
-    if score and (all or sameWorld(c)) then
+    -- nur Namen von meinem Server und meiner Fraktion, sonst geht die Post an die falsche Person;
+    -- Freunde der normalen Freundesliste nur, wenn in den Einstellungen eingeschaltet
+    if score and visibleSource(c) and (all or sameWorld(c)) then
       out[#out + 1] = { c = c, score = score * 10 + (SRC_RANK[c.src] or 0) }
     end
   end
@@ -418,7 +423,7 @@ local editFrame
 local function buildEdit()
   local f = Panel("PostillionEdit")
   f:SetFrameStrata("FULLSCREEN_DIALOG")
-  f:SetSize(380, 290)
+  f:SetSize(380, 336)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
   f:SetBackdropBorderColor(unpack(C.sun))
   f:EnableMouse(true); f:SetMovable(true); f:RegisterForDrag("LeftButton")
@@ -439,14 +444,14 @@ local function buildEdit()
   eb:SetScript("OnEditFocusGained", function(s) s:SetBackdropBorderColor(unpack(C.sun)) end)
   eb:SetScript("OnEditFocusLost", function(s) s:SetBackdropBorderColor(unpack(C.edge)) end)
   f.note = eb
-  local pl = Text(f, 11, C.dim); pl:SetPoint("TOPLEFT", 14, -108); pl:SetText(L("Berufe (anklicken)", "Professions (click)"))
+  local pl = Text(f, 11, C.dim); pl:SetPoint("TOPLEFT", 14, -108); pl:SetText(L("Hauptberufe (höchstens 2)", "Main professions (max. 2)"))
   f.sel = {}
   f.btns = {}
   for i, p in ipairs(PROFS) do
-    local col, row = (i - 1) % 4, math.floor((i - 1) / 4)
+    local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
     local b = CreateFrame("Button", nil, f, "BackdropTemplate")
-    b:SetSize(80, 48)
-    b:SetPoint("TOPLEFT", 14 + col * 87, -126 - row * 54)
+    b:SetSize(112, 48)
+    b:SetPoint("TOPLEFT", 14 + col * 120, -126 - row * 54)
     Flat(b, C.card)
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.icon:SetSize(24, 24); b.icon:SetPoint("TOP", 0, -4)
@@ -458,8 +463,25 @@ local function buildEdit()
       else b:SetBackdropColor(unpack(C.card)); b:SetBackdropBorderColor(unpack(C.edge)); b.icon:SetAlpha(0.45) end
     end
     b.paint = paint
-    b:SetScript("OnClick", function() f.sel[p[1]] = not f.sel[p[1]] or nil; paint() end)
+    b:SetScript("OnClick", function()
+      if f.sel[p[1]] then
+        f.sel[p[1]] = nil
+      else
+        local n = 0
+        for _ in pairs(f.sel) do n = n + 1 end
+        if n >= MAX_PROFS then f.limit:SetTextColor(unpack(C.red)); return end   -- dritter Beruf wird abgelehnt
+        f.sel[p[1]] = true
+      end
+      f.limit:SetTextColor(unpack(C.dim))
+      paint(); f.UpdateLimit()
+    end)
     f.btns[i] = b
+  end
+  f.limit = Text(f, 11, C.dim); f.limit:SetPoint("TOPRIGHT", -14, -108)
+  function f.UpdateLimit()
+    local n = 0
+    for _ in pairs(f.sel) do n = n + 1 end
+    f.limit:SetText(n .. "/" .. MAX_PROFS)
   end
   local ok = FlatButton(f, L("Speichern", "Save"), 110, 24, function()
     local c = f.c
@@ -503,6 +525,7 @@ editNote = function(c)
   f.sel = {}
   for _, k in ipairs(getProfs(c)) do f.sel[k] = true end
   for _, b in ipairs(f.btns) do b.paint() end
+  f.limit:SetTextColor(unpack(C.dim)); f.UpdateLimit()
   f:Show()
   f.note:SetFocus()
 end
@@ -523,7 +546,7 @@ local function makeRow(parent, i, onClick, top)
   b.name = Text(b, 13)
   b.name:SetPoint("LEFT", b.icon, "RIGHT", 6, 0)
   b.pi = {}
-  for k = 1, 4 do
+  for k = 1, MAX_PROFS do
     local t = b:CreateTexture(nil, "ARTWORK")
     t:SetSize(14, 14); t:SetPoint("RIGHT", -7 - (k - 1) * 16, 0)
     t:SetTexCoord(0.08, 0.92, 0.08, 0.92); t:Hide()
@@ -601,14 +624,14 @@ local function fillRow(r, res, first, indent)
     r.info:SetText(worldLabel(c)); r.info:SetTextColor(unpack(C.red))
   end
   local pl = getProfs(c)
-  for k = 1, 4 do
+  for k = 1, MAX_PROFS do
     local p = pl[k] and PROF_BY_KEY[pl[k]]
     if p then
       r.pi[k]:SetTexture("Interface\\Icons\\" .. p[3]); r.pi[k]:SetDesaturated(not ok); r.pi[k]:Show()
     else r.pi[k]:Hide() end
   end
   r.info:ClearAllPoints()
-  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, 4) * 16, 0)
+  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, MAX_PROFS) * 16, 0)
   if r.stripe then if first then r.stripe:Show() else r.stripe:Hide() end end
   r:Show()
 end
@@ -626,17 +649,17 @@ local function fillGroupRow(r, g, open)
   r.name:SetFont(FONT, 13, "")
   r.name:SetText(g.tag); r.name:SetTextColor(unpack(C.sun))
   local note = getNote(c)
-  local cnt = #g.chars .. L(" Chars", " chars")
+  local cnt = #g.chars .. (#g.chars == 1 and L(" Char", " char") or L(" Chars", " chars"))
   if note then cnt = "|cffffcc5c" .. (#note > 14 and (note:sub(1, 13) .. "…") or note) .. "|r · " .. cnt end
   r.info:SetText(cnt); r.info:SetTextColor(unpack(C.dim))
   local pl = getProfs(c)
-  for k = 1, 4 do
+  for k = 1, MAX_PROFS do
     local p = pl[k] and PROF_BY_KEY[pl[k]]
     if p then r.pi[k]:SetTexture("Interface\\Icons\\" .. p[3]); r.pi[k]:SetDesaturated(false); r.pi[k]:Show()
     else r.pi[k]:Hide() end
   end
   r.info:ClearAllPoints()
-  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, 4) * 16, 0)
+  r.info:SetPoint("RIGHT", r, "RIGHT", -7 - math.min(#pl, MAX_PROFS) * 16, 0)
   if r.stripe then r.stripe:Hide() end
   r:Show()
 end
@@ -860,7 +883,7 @@ end
 
 local function buildMain()
   if listFrame then return end
-  local H = 40 + 28 + 34 + LIST_ROWS * ROW_H + 30
+  local H = 40 + 28 + 34 + LIST_ROWS * ROW_H + 40
   listFrame = Panel("PostillionList")
   listFrame:SetFrameStrata("DIALOG")
   listFrame:SetSize(400, H)
@@ -947,36 +970,46 @@ local function buildMain()
     line:SetPoint("TOPLEFT", 12, y - 16); line:SetPoint("TOPRIGHT", -12, y - 16)
   end
   head(L("Allgemein", "General"), -8)
+  local function subline(text, y)
+    local t = Text(pageSet, 10, C.dim)
+    t:SetPoint("TOPLEFT", 36, y); t:SetText(text)
+  end
   local c1 = Check(pageSet, L("Minimap-Button anzeigen", "Show minimap button"),
     function() return not db.mmHide end,
     function(v) db.mmHide = not v; if mm then mm:SetShown(v) end end)
   c1:SetPoint("TOPLEFT", 12, -30)
-  local c2 = Check(pageSet, L("Automatisch im Hintergrund einlesen (Freunde 60 s, Gilde 5 min)", "Scan automatically in the background (friends 60 s, guild 5 min)"),
+  local c2 = Check(pageSet, L("Automatisch im Hintergrund einlesen", "Scan automatically in the background"),
     function() return db.auto ~= false end,
     function(v) db.auto = v end)
   c2:SetPoint("TOPLEFT", 12, -52)
+  subline(L("Liest deine Freunde jede Minute selbst ein.", "Reads your friends by itself every minute."), -70)
   local c3 = Check(pageSet, L("Namen anderer Server/Fraktionen in der Liste zeigen", "Show names of other realms/factions in the list"),
     function() return db.showAll and true or false end,
-    function(v) db.showAll = v or nil; listOffset = 0 end)
-  c3:SetPoint("TOPLEFT", 12, -74)
+    function(v) db.showAll = v or nil; listOffset = 0; NP.RefreshAll() end)
+  c3:SetPoint("TOPLEFT", 12, -90)
+  local c4 = Check(pageSet, L("Freunde der normalen Freundesliste anzeigen", "Show friends of the regular friends list"),
+    function() return db.showIngame and true or false end,
+    function(v) db.showIngame = v or nil; listOffset = 0; NP.RefreshAll() end)
+  c4:SetPoint("TOPLEFT", 12, -112)
+  subline(L("Reine Ingame-Charakterfreunde. Battle.net-Freunde sind immer sichtbar.", "Pure in-game character friends. Battle.net friends are always shown."), -130)
 
-  head(L("Namen", "Names"), -104)
+  head(L("Namen", "Names"), -154)
   setInfo = Text(pageSet, 11, C.dim)
-  setInfo:SetPoint("TOPLEFT", 12, -126)
+  setInfo:SetPoint("TOPLEFT", 12, -176)
   local scan = FlatButton(pageSet, L("Jetzt einlesen", "Scan now"), 130, 24, function()
     NP.ScanAll(); NP.RefreshSettings()
   end)
-  scan:SetPoint("TOPLEFT", 12, -146)
+  scan:SetPoint("TOPLEFT", 12, -196)
   local diag = FlatButton(pageSet, L("Diagnose in den Chat", "Diagnostics to chat"), 160, 24, function()
     SlashCmdList.POSTILLION("debug")
   end)
   diag:SetPoint("LEFT", scan, "RIGHT", 8, 0)
 
   local addL = Text(pageSet, 11, C.dim)
-  addL:SetPoint("TOPLEFT", 12, -180)
+  addL:SetPoint("TOPLEFT", 12, -230)
   addL:SetText(L("Namen von Hand merken (für deinen Server und deine Fraktion)", "Remember a name by hand (for your realm and faction)"))
   local addE = CreateFrame("EditBox", nil, pageSet, "BackdropTemplate")
-  addE:SetSize(250, 24); addE:SetPoint("TOPLEFT", 12, -198)
+  addE:SetSize(250, 24); addE:SetPoint("TOPLEFT", 12, -248)
   Flat(addE, C.field)
   addE:SetFont(FONT, 12, ""); addE:SetTextColor(unpack(C.text)); addE:SetAutoFocus(false); addE:SetTextInsets(8, 8, 0, 0)
   addE:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
@@ -994,16 +1027,16 @@ local function buildMain()
   local addB = FlatButton(pageSet, L("Hinzufügen", "Add"), 100, 24, doAdd)
   addB:SetPoint("LEFT", addE, "RIGHT", 8, 0)
 
-  head(L("Befehle", "Commands"), -232)
+  head(L("Befehle", "Commands"), -282)
   local cmds = Text(pageSet, 10, C.dim)
-  cmds:SetPoint("TOPLEFT", 12, -254); cmds:SetWidth(376); cmds:SetJustifyV("TOP")
+  cmds:SetPoint("TOPLEFT", 12, -304); cmds:SetWidth(376); cmds:SetJustifyV("TOP")
   if cmds.SetSpacing then cmds:SetSpacing(3) end
   cmds:SetText(table.concat({
     "|cffffcc5c/pp|r  " .. L("Fenster öffnen", "open the window"),
     "|cffffcc5c/pp einstellungen|r  " .. L("diesen Reiter öffnen", "open this tab"),
     "|cffffcc5c/pp liste [Teil]|r  " .. L("Namen im Chat auflisten", "list names in chat"),
     "|cffffcc5c/pp note Name | Text|r  " .. L("Notiz setzen (Rechtsklick geht auch)", "set a note (right-click works too)"),
-    "|cffffcc5c/pp beruf Name | Beruf, Beruf|r  " .. L("Berufe setzen", "set professions"),
+    "|cffffcc5c/pp beruf Name | Beruf, Beruf|r  " .. L("bis zu 2 Berufe setzen", "set up to 2 professions"),
     "|cffffcc5c/pp add Name|r  " .. L("Namen merken", "remember a name"),
     "|cffffcc5c/pp del Name|r  " .. L("Namen vergessen", "forget a name"),
     "|cffffcc5c/pp scan|r  " .. L("jetzt einlesen", "scan now"),
@@ -1092,9 +1125,7 @@ end
 
 local f = CreateFrame("Frame")
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "BN_FRIEND_LIST_SIZE_CHANGED", "BN_FRIEND_INFO_CHANGED",
-  "BN_FRIEND_ACCOUNT_ONLINE", "BN_CONNECTED", "FRIENDLIST_UPDATE", "GROUP_ROSTER_UPDATE",
-  "GUILD_ROSTER_UPDATE", "MAIL_SHOW", "MAIL_INBOX_UPDATE", "MAIL_SEND_SUCCESS", "CHAT_MSG_WHISPER",
-  "CHAT_MSG_BN_WHISPER" }) do
+  "BN_FRIEND_ACCOUNT_ONLINE", "BN_CONNECTED", "FRIENDLIST_UPDATE", "MAIL_SHOW" }) do
   pcall(f.RegisterEvent, f, e)
 end
 
@@ -1109,59 +1140,31 @@ local function scheduleScan()
 end
 
 -- Selbstständig im Hintergrund einlesen: kurz nach dem Login (Battle.net ist dann oft noch nicht
--- bereit), danach regelmäßig. Freunde alle 60 s, Gilde alle 5 min. Ausschalten: /pp auto
-local AUTO_FRIENDS, AUTO_GUILD = 60, 300
+-- bereit), danach jede Minute. Ausschalten: /pp auto
+local AUTO_FRIENDS = 60
 local function autoStep()
   if not db or db.auto == false then return end
-  scanBattleNet(); scanFriendList(); scanGroup()
-end
-local function guildStep()
-  if not db or db.auto == false then return end
-  if IsInGuild and IsInGuild() and C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
-  scanGuild()
+  scanBattleNet(); scanFriendList()
 end
 function NP.StartAuto()
   if NP.autoStarted then return end
   NP.autoStarted = true
   for _, t in ipairs({ 5, 20 }) do C_Timer.After(t, autoStep) end
-  C_Timer.After(10, guildStep)
-  if C_Timer.NewTicker then
-    C_Timer.NewTicker(AUTO_FRIENDS, autoStep)
-    C_Timer.NewTicker(AUTO_GUILD, guildStep)
-  end
+  if C_Timer.NewTicker then C_Timer.NewTicker(AUTO_FRIENDS, autoStep) end
 end
 
-local lastRecipient
 f:SetScript("OnEvent", function(_, event, a1, ...)
   if event == "ADDON_LOADED" then
-    if a1 == ADDON then initDB() end
+    if a1 == ADDON then initDB(); NP.Migrate() end
     return
   end
   if not db then return end
   if event == "PLAYER_LOGIN" then
     NP.ScanAll()
-    if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
     NP.StartAuto()
     NP.BuildMinimap()
-    if SendMail and not NP.hookedSend then
-      NP.hookedSend = true
-      hooksecurefunc("SendMail", function(recipient) lastRecipient = recipient end)
-    end
   elseif event == "MAIL_SHOW" then
     buildUI()
-    scanInbox()
-  elseif event == "MAIL_INBOX_UPDATE" then
-    scanInbox()
-  elseif event == "MAIL_SEND_SUCCESS" then
-    if lastRecipient then remember(lastRecipient, "post"); lastRecipient = nil end
-  elseif event == "GROUP_ROSTER_UPDATE" then
-    scanGroup()
-  elseif event == "GUILD_ROSTER_UPDATE" then
-    scanGuild()
-  elseif event == "CHAT_MSG_WHISPER" then
-    -- a1 = Text, 2. Rückgabewert = Absender
-    local sender = ...
-    remember(sender, "fluestern")
   else
     -- Battle.net-/Freundesereignisse: Freunde einlesen (kurz gebündelt)
     scheduleScan()
@@ -1203,7 +1206,7 @@ SlashCmdList["POSTILLION"] = function(msg)
           "/pp all  toggle showing names from other realms/factions (grey) in the list"))
     say(L("/pp auto  automatisches Einlesen alle 60 s ein/aus (Standard: an)",
           "/pp auto  toggle automatic scan every 60 s (default: on)"))
-    say(L("/pp scan  Freunde, Gilde, Gruppe jetzt einlesen", "/pp scan  read friends, guild, group now"))
+    say(L("/pp scan  Freunde jetzt einlesen", "/pp scan  read friends now"))
     say(L("Im Post-Fenster: Name tippen (auch nur Nachname) oder Knopf \"Freunde\".",
           "In the mail window: type a name (or just the last name) or use the \"Friends\" button."))
   elseif cmd == "alle" or cmd == "all" then
@@ -1259,8 +1262,8 @@ SlashCmdList["POSTILLION"] = function(msg)
     say(hit.name .. ": " .. (#names > 0 and table.concat(names, ", ") or L("keine Berufe", "no professions")))
   elseif cmd == "auto" then
     db.auto = (db.auto == false)
-    say(db.auto and L("Automatisches Einlesen im Hintergrund AN (Freunde alle 60 s, Gilde alle 5 min).",
-      "Automatic background scan ON (friends every 60 s, guild every 5 min).")
+    say(db.auto and L("Automatisches Einlesen im Hintergrund AN (Freunde jede Minute).",
+      "Automatic background scan ON (friends every minute).")
       or L("Automatisches Einlesen AUS (nur noch bei Ereignissen und /pp scan).",
       "Automatic background scan OFF (only on events and /pp scan)."))
   elseif cmd == "scan" then

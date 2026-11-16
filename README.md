@@ -12,7 +12,7 @@ Mit Vor- und Nachnamen und dem neuen Freundessystem kennt das Spiel den Charakte
 
 ## Die Lösung
 
-Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und speichert ihn dauerhaft. Quellen: Battle.net-Freunde, normale Freundesliste, Gilde, Gruppe, Flüstern, Post-Absender und frühere Empfänger. Ein Freund muss **einmal online gesehen** worden sein, danach ist sein Name im Post-Fenster verfügbar.
+Postillion liest im Hintergrund die Charakternamen **deiner Freunde** mit und speichert sie dauerhaft: Battle.net-Freunde (immer) und Freunde der normalen Freundesliste (in den Einstellungen einschaltbar). Gilde, Gruppe, Flüstern und Post-Absender werden bewusst **nicht** erfasst, damit nur echte Freunde in der Liste stehen. Ein Freund muss **einmal online gesehen** worden sein, danach ist sein Name im Post-Fenster verfügbar.
 
 ## Installation
 
@@ -27,10 +27,10 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 - **Minimap-Button:** Linksklick öffnet das Hauptfenster mit der Freundesliste, Rechtsklick die **Einstellungen**, Ziehen verschiebt den Button am Minimaprand. Das Hauptfenster ist unabhängig vom Post-Fenster, öffnet sich auch mit `/pp` und lässt sich verschieben (die Position wird gemerkt). Ohne offenes Post-Fenster öffnet ein Klick auf einen Namen Notiz und Berufe, mit offenem Post-Fenster übernimmt er den Namen.
 - **Einstellungen:** Alles, was es als Befehl gibt, geht auch per Klick: Minimap-Button, automatisches Einlesen und Namen anderer Server/Fraktionen als Schalter, "Jetzt einlesen", Namen von Hand hinzufügen, Diagnose in den Chat, dazu eine Übersicht der Befehle. Namen vergessen geht im Bearbeitungsfenster (Rechtsklick auf einen Namen).
 - **Im Post-Fenster** im Feld "An" ein paar Buchstaben tippen, auch nur vom **Nachnamen** oder vom Namen des Freundes. Es erscheint ein Vorschlagsfenster, **Tab** übernimmt den ersten Treffer, ein Klick übernimmt den gewählten Namen.
-- Der Knopf **Freunde** neben dem Feld öffnet die komplette Liste mit Suche, Klassensymbolen und Mausrad-Blättern. Die Liste ist **nach BattleTag gruppiert**: Jeder Freund steht als Zeile mit seinem BattleTag, ein Klick klappt seine Charaktere auf (Zähler, Notiz und Berufe stehen schon in der Kopfzeile). Beim Suchen klappen die Treffer von selbst auf, welche Freunde aufgeklappt sind, wird gemerkt. Namen ohne BattleTag (Gilde, Gruppe, Flüstern) stehen einzeln darunter.
-- **Notizen und Berufe:** **Rechtsklick** auf einen Namen (Liste oder Vorschlag) öffnet ein Fenster mit einer Notiz (z.B. "tauscht gern Erz") und den Berufen des Freundes zum Anklicken (Bergbau, Kräuterkunde, Kürschnerei, Schmiedekunst, Ingenieurskunst, Alchemie, Schneiderei, Lederverarbeitung, Verzauberkunst, Kochkunst, Erste Hilfe, Angeln). Beides gilt für alle Charaktere desselben Freundes, die Berufe erscheinen als Symbole in der Zeile, alles steht im Tooltip und ist durchsuchbar: "schmied" findet alle Freunde, die Schmiedekunst haben. Das Spiel verrät die Berufe eines Freundes nicht, du trägst sie selbst ein.
+- Der Knopf **Freunde** neben dem Feld öffnet die komplette Liste mit Suche, Klassensymbolen und Mausrad-Blättern. Die Liste ist **nach BattleTag gruppiert**: Jeder Freund steht als Zeile mit seinem BattleTag, ein Klick klappt seine Charaktere auf (Zähler, Notiz und Berufe stehen schon in der Kopfzeile). Beim Suchen klappen die Treffer von selbst auf, welche Freunde aufgeklappt sind, wird gemerkt. Ingame-Freunde und von Hand eingetragene Namen (ohne BattleTag) stehen einzeln darunter.
+- **Notizen und Berufe:** **Rechtsklick** auf einen Namen (Liste oder Vorschlag) öffnet ein Fenster mit einer Notiz (z.B. "tauscht gern Erz") und den Berufen des Freundes zum Anklicken: bis zu **2 Hauptberufe** (Bergbau, Kräuterkunde, Kürschnerei, Schmiedekunst, Ingenieurskunst, Alchemie, Schneiderei, Lederverarbeitung, Verzauberkunst; Sekundärberufe gibt es nicht). Beides gilt für alle Charaktere desselben Freundes, die Berufe erscheinen als Symbole in der Zeile, alles steht im Tooltip und ist durchsuchbar: "schmied" findet alle Freunde, die Schmiedekunst haben. Das Spiel verrät die Berufe eines Freundes nicht, du trägst sie selbst ein.
 - **Server und Fraktion sind abgesichert:** Vorgeschlagen werden nur Namen, die zu deinem Servertyp (PvE, RP-PvE, PvP ...) und deiner Fraktion passen. Gleichnamige Charaktere auf einem anderen Servertyp oder in der anderen Fraktion werden nicht angeboten, damit Post nicht an die falsche Person geht. Die Nummern in den Servernamen (z.B. `Realm1`, `Realm5`) sind nur Layer desselben Servers und werden ignoriert. Gespeichert wird alles, angezeigt nur, was passt (in der Liste lässt sich "andere Server/Fraktionen" einblenden, grau und mit Warnung).
-- **Automatisch:** Nach dem Login und danach alle 60 Sekunden (Gilde alle 5 Minuten) liest Postillion Freunde, Gruppe und Gilde selbst ein.
+- **Automatisch:** Nach dem Login und danach alle 60 Sekunden liest Postillion deine Freunde jede Minute selbst ein.
 
 ## Befehle
 
@@ -45,7 +45,7 @@ Postillion liest im Hintergrund jeden Namen mit, den das Spiel dir zeigt, und sp
 | `/pp beruf <Name> \| <Beruf, Beruf>` | Berufe eines Freundes eintragen (leer löscht) |
 | `/pp add <Name>` | Namen von Hand merken (gilt für deinen Server und deine Fraktion) |
 | `/pp del <Name>` | Namen vergessen |
-| `/pp scan` | Freunde, Gilde, Gruppe sofort einlesen |
+| `/pp scan` | Freunde sofort einlesen |
 | `/pp auto` | automatisches Einlesen ein- oder ausschalten (Standard: an) |
 | `/pp alle` | Liste auch mit Namen anderer Server/Fraktionen |
 | `/pp debug` | zeigt, was die Battle.net-Schnittstelle liefert und warum ein Freund passt oder ausgeblendet wird |
@@ -81,7 +81,7 @@ With first and last names and the new friends system, the game only exposes a Ba
 
 ## The solution
 
-Postillion quietly records every name the game shows you and stores it permanently. Sources: Battle.net friends, the regular friends list, guild, group, whispers, mail senders and earlier recipients. A friend has to be **seen online once**; after that the name is available in the mail window.
+Postillion quietly records the character names of **your friends** and stores them permanently: Battle.net friends (always) and friends of the regular friends list (can be switched on in the settings). Guild, group, whispers and mail senders are deliberately **not** recorded, so only real friends are in the list. A friend has to be **seen online once**; after that the name is available in the mail window.
 
 ## Installation
 
@@ -96,10 +96,10 @@ Postillion quietly records every name the game shows you and stores it permanent
 - **Minimap button:** left-click opens the main window with the friends list, right-click opens the **settings**, dragging moves the button around the minimap. The main window works independently of the mail window, also opens with `/pp` and can be moved (position is remembered). With the mail window closed, clicking a name opens note and professions; with it open, it picks the name.
 - **Settings:** everything that exists as a command also works by click: minimap button, automatic scan and names of other realms/factions as toggles, "Scan now", add a name by hand, diagnostics to chat, plus an overview of the commands. Forgetting a name is in the edit window (right-click a name).
 - **In the mail window**, type a few letters into the "To" field, also just of the **last name** or of the friend's name. A suggestion popup appears, **Tab** accepts the first match, a click picks the selected name.
-- The **Friends** button next to the field opens the full list with search, class icons and mouse-wheel scrolling. The list is **grouped by BattleTag**: each friend is one row with their BattleTag, a click expands their characters (count, note and professions are already shown in the header row). While searching, matches expand automatically, and which friends are expanded is remembered. Names without a BattleTag (guild, group, whispers) are listed individually below.
-- **Notes and professions:** **right-click** a name (list or suggestion) to open a window with a note (e.g. "likes to trade ore") and the friend's professions to click (Mining, Herbalism, Skinning, Blacksmithing, Engineering, Alchemy, Tailoring, Leatherworking, Enchanting, Cooking, First Aid, Fishing). Both apply to all characters of the same friend, professions show as icons in the row, everything is in the tooltip and searchable: "blacksm" finds every friend who has Blacksmithing. The game does not reveal a friend's professions, so you enter them yourself.
+- The **Friends** button next to the field opens the full list with search, class icons and mouse-wheel scrolling. The list is **grouped by BattleTag**: each friend is one row with their BattleTag, a click expands their characters (count, note and professions are already shown in the header row). While searching, matches expand automatically, and which friends are expanded is remembered. In-game friends and names added by hand (without a BattleTag) are listed individually below.
+- **Notes and professions:** **right-click** a name (list or suggestion) to open a window with a note (e.g. "likes to trade ore") and the friend's professions to click: up to **2 main professions** (Mining, Herbalism, Skinning, Blacksmithing, Engineering, Alchemy, Tailoring, Leatherworking, Enchanting; no secondary professions). Both apply to all characters of the same friend, professions show as icons in the row, everything is in the tooltip and searchable: "blacksm" finds every friend who has Blacksmithing. The game does not reveal a friend's professions, so you enter them yourself.
 - **Realm and faction are safeguarded:** only names matching your realm type (PvE, RP-PvE, PvP ...) and your faction are suggested. Same-named characters on another realm type or in the other faction are never offered, so mail does not reach the wrong person. The numbers in realm names (e.g. `Realm1`, `Realm5`) are just layers of the same server and are ignored. Everything is stored, only matching entries are shown (the list can show "other realms/factions", greyed out with a warning).
-- **Automatic:** after login and then every 60 seconds (guild every 5 minutes) Postillion reads friends, group and guild by itself.
+- **Automatic:** after login and then every 60 seconds Postillion reads your friends by itself every minute.
 
 ## Commands
 
@@ -114,7 +114,7 @@ Postillion quietly records every name the game shows you and stores it permanent
 | `/pp prof <name> \| <profession, profession>` | set a friend's professions (empty deletes) |
 | `/pp add <name>` | remember a name by hand (assumed to be on your realm and faction) |
 | `/pp del <name>` | forget a name |
-| `/pp scan` | read friends, guild, group now |
+| `/pp scan` | read friends now |
 | `/pp auto` | toggle automatic scanning (default: on) |
 | `/pp all` | show names from other realms/factions in the list |
 | `/pp debug` | shows what the Battle.net API returns and why a friend matches or is hidden |
