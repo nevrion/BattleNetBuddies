@@ -69,8 +69,21 @@ local function sameWorld(c)
   return c.realmKey ~= nil and c.faction ~= nil and realmOk(c.realmKey) and c.faction == myFaction()
 end
 
+-- Servertyp in üblicher Schreibweise (intern kleingeschrieben: pve, rppve ...)
+local KIND_NAMES = { pve = "PvE", pvp = "PvP", rppve = "RP-PvE", rppvp = "RP-PvP", rp = "RP" }
+local function kindLabel(k)
+  if not k or k == "" then return "?" end
+  return KIND_NAMES[k] or k:upper()
+end
+-- Fraktionswappen als eingebettete Textur statt "Horde"/"Allianz" auszuschreiben
+local function factionIcon(f)
+  if f == "Horde" then return "|TInterface\\TargetingFrame\\UI-PVP-Horde:18:18:0:0:64:64:0:40:0:40|t" end
+  if f == "Alliance" then return "|TInterface\\TargetingFrame\\UI-PVP-Alliance:18:18:0:0:64:64:0:40:0:40|t" end
+  return "?"
+end
+
 local function worldLabel(c)
-  return (c.realmKey or "?") .. ", " .. (c.faction or "?")
+  return kindLabel(c.realmKey) .. " " .. factionIcon(c.faction)
 end
 
 -- Quelle: höhere Zahl = vertrauenswürdiger bzw. wichtiger für die Sortierung
@@ -1218,7 +1231,7 @@ SlashCmdList["POSTILLION"] = function(msg)
     local res = NP.Search(rest, 40, db.showAll)
     say(#res .. L(" Treffer", " matches"))
     for _, r in ipairs(res) do
-      say(r.c.name .. "  |cff999999" .. worldLabel(r.c) .. ", " .. describe(r.c) .. " [" .. tostring(r.c.src) .. "]|r")
+      say(r.c.name .. "  |cff999999" .. worldLabel(r.c) .. " " .. describe(r.c) .. " [" .. tostring(r.c.src) .. "]|r")
     end
   elseif cmd == "add" then
     local name, acc = rest:match("^(.-)%s*|%s*(.+)$")

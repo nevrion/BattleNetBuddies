@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+- **EN:** Server types are written properly (PvE, PvP, RP-PvE) and the faction is shown as its crest instead of the word Horde/Alliance.
+- **DE:** Servertypen stehen in richtiger Schreibweise (PvE, PvP, RP-PvE), und die Fraktion erscheint als Wappen statt als Wort Horde/Allianz.
+
 ## 0.11.0
 - **EN:** Only real friends are listed now: Battle.net friends always, friends of the regular friends list optionally (Settings). Guild, group, whisper and mail-sender names are no longer recorded, and existing ones are removed. Professions: only the 9 main professions, at most 2 per friend (existing entries are trimmed). Fixed the edit window (buttons covered the profession icons) and the settings text running out of the frame.
 - **DE:** Es stehen nur noch echte Freunde in der Liste: Battle.net-Freunde immer, Freunde der normalen Freundesliste auf Wunsch (Einstellungen). Namen aus Gilde, Gruppe, Flüstern und Post-Absendern werden nicht mehr erfasst, vorhandene werden entfernt. Berufe: nur die 9 Hauptberufe, höchstens 2 pro Freund (vorhandene Einträge werden gekürzt). Das Bearbeitungsfenster (Knöpfe verdeckten die Berufssymbole) und der Text in den Einstellungen, der über den Rahmen lief, sind korrigiert.
