@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" alt="Battle.net Buddies" width="160"></p>
+
 # Battle.net Buddies
 
 **Deutsch** · [English](#english)

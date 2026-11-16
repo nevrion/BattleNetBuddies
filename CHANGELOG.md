@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.1
+- **EN:** New logo: used for the minimap button and the addon list.
+- **DE:** Neues Logo: wird für den Minimap-Button und die Addon-Liste verwendet.
+
 ## 0.13.0
 - **EN:** Renamed from *Postillion* to **Battle.net Buddies** (folder `BattleNetBuddies`, command `/bnb`; `/pp` and `/postillion` still work as aliases). Saved data is carried over automatically. The extension is now *Battle.net Buddies Craft*.
 - **DE:** Umbenannt von *Postillion* in **Battle.net Buddies** (Ordner `BattleNetBuddies`, Befehl `/bnb`; `/pp` und `/postillion` funktionieren weiter als Alias). Gespeicherte Daten werden automatisch übernommen. Die Erweiterung heißt jetzt *Battle.net Buddies Craft*.
