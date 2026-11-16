@@ -171,9 +171,20 @@ local MAX_PROFS = 2   -- höchstens zwei Hauptberufe pro Freund
 local PROF_BY_KEY = {}
 for _, p in ipairs(PROFS) do PROF_BY_KEY[p[1]] = p end
 
-local function getProfs(c)
+-- von Hand eingetragene Berufe
+local function getManualProfs(c)
   local tk, ck = noteKeys(c)
   return (tk and db.profs[tk]) or db.profs[ck] or {}
+end
+-- Berufe zur Anzeige: Erweiterungen (z.B. Postillion Craft) können automatisch empfangene liefern,
+-- sonst gelten die Handeinträge
+local profProvider
+local function getProfs(c)
+  if profProvider then
+    local ok, list = pcall(profProvider, c)
+    if ok and type(list) == "table" and #list > 0 then return list end
+  end
+  return getManualProfs(c)
 end
 local function setProfs(c, list)
   local tk, ck = noteKeys(c)
@@ -223,8 +234,12 @@ end
 -- Quellen einlesen
 ----------------------------------------------------------------------
 
+local function bareName(n) return (n or ""):gsub("%-[^%- ]+$", ""):lower() end
+NP.onlineBN, NP.onlineFL = {}, {}   -- Freunde, die gerade online sind (kleingeschriebener Charaktername)
+
 local function scanBattleNet()
   local n = 0
+  NP.onlineBN = {}
   if C_BattleNet and C_BattleNet.GetFriendAccountInfo and BNGetNumFriends then
     local num = BNGetNumFriends() or 0
     for i = 1, num do
@@ -234,6 +249,7 @@ local function scanBattleNet()
           if g and g.characterName and g.characterName ~= "" then
             -- nur WoW-Charaktere (andere Spiele haben keinen Post)
             if not g.clientProgram or g.clientProgram == "WoW" or g.clientProgram == "WoWC" then
+              if g.isOnline ~= false then NP.onlineBN[bareName(g.characterName)] = true end
               -- ohne BattleTag meldet Forever reine Ingame-Charakterfreunde über diese Liste
               local real = info.battleTag and info.battleTag ~= ""
               remember(g.characterName, real and "freund" or "liste", real and info.battleTag or nil,
@@ -271,10 +287,14 @@ local function scanBattleNet()
 end
 
 local function scanFriendList()
+  NP.onlineFL = {}
   if C_FriendList and C_FriendList.GetNumFriends then
     for i = 1, (C_FriendList.GetNumFriends() or 0) do
       local info = C_FriendList.GetFriendInfoByIndex(i)
-      if info and info.name then remember(info.name, "liste", nil, nil, info.className, info.level) end
+      if info and info.name then
+        remember(info.name, "liste", nil, nil, info.className, info.level)
+        if info.connected then NP.onlineFL[bareName(info.name)] = true end
+      end
     end
   end
 end
@@ -537,7 +557,7 @@ editNote = function(c)
   f.sub:SetText(friendLabel(c) and (friendLabel(c) .. " · " .. worldLabel(c)) or worldLabel(c))
   f.note:SetText(getNote(c) or ""); f.note:SetCursorPosition(0)
   f.sel = {}
-  for _, k in ipairs(getProfs(c)) do f.sel[k] = true end
+  for _, k in ipairs(getManualProfs(c)) do f.sel[k] = true end
   for _, b in ipairs(f.btns) do b.paint() end
   f.limit:SetTextColor(unpack(C.dim)); f.UpdateLimit()
   f:Show()
@@ -545,6 +565,7 @@ editNote = function(c)
 end
 
 -- Zeile: Klassensymbol, Name in Klassenfarbe, rechts Freund/Stufe, bei Fremden Server/Fraktion in Rot
+local tooltipHooks = {}
 local toggleGroup
 local function makeRow(parent, i, onClick, top)
   local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -592,6 +613,7 @@ local function makeRow(parent, i, onClick, top)
       if #gnames > 0 then GameTooltip:AddLine(table.concat(gnames, ", "), 0.47, 0.87, 0.7, true) end
       local gnote = getNote(c)
       if gnote then GameTooltip:AddLine(gnote, 1, 0.8, 0.36, true) end
+      for _, fn in ipairs(tooltipHooks) do pcall(fn, GameTooltip, c) end
       GameTooltip:AddLine(L("Klick = auf-/zuklappen · Rechtsklick = Notiz und Berufe", "Click = expand/collapse · right-click = note and professions"), 0.62, 0.6, 0.72)
       GameTooltip:Show()
       return
@@ -605,6 +627,7 @@ local function makeRow(parent, i, onClick, top)
     if #names > 0 then GameTooltip:AddLine(table.concat(names, ", "), 0.47, 0.87, 0.7, true) end
     local note = getNote(c)
     if note then GameTooltip:AddLine(note, 1, 0.8, 0.36, true) end
+    for _, fn in ipairs(tooltipHooks) do pcall(fn, GameTooltip, c) end
     GameTooltip:AddLine(L("Rechtsklick = Notiz und Berufe", "Right-click = note and professions"), 0.62, 0.6, 0.72)
     GameTooltip:Show()
   end)
@@ -832,6 +855,7 @@ end
 ----------------------------------------------------------------------
 
 local pageList, pageSet
+local pages, extraTabs, tabCount = {}, {}, 0
 local tabBtns = {}
 local checks = {}
 local mm
@@ -872,7 +896,7 @@ end
 local function selectTab(which)
   NP.tab = which
   if not pageList then return end
-  pageList:SetShown(which == "list"); pageSet:SetShown(which == "settings")
+  for k, pg in pairs(pages) do pg:SetShown(k == which) end
   for k, b in pairs(tabBtns) do
     if k == which then
       b:SetBackdropBorderColor(unpack(C.sun)); b:SetBackdropColor(unpack(C.cardHover)); b.label:SetTextColor(unpack(C.sun))
@@ -880,7 +904,15 @@ local function selectTab(which)
       b:SetBackdropBorderColor(unpack(C.edge)); b:SetBackdropColor(unpack(C.card)); b.label:SetTextColor(unpack(C.text))
     end
   end
-  if which == "list" then refreshList() else NP.RefreshSettings() end
+  if which == "list" then refreshList()
+  elseif which == "settings" then NP.RefreshSettings()
+  else
+    local t = extraTabs[which]
+    if t then
+      if not t.built then t.built = true; pcall(t.build, pages[which]) end
+      if t.show then pcall(t.show, pages[which]) end
+    end
+  end
 end
 
 local function placeWindow()
@@ -921,20 +953,30 @@ local function buildMain()
   close:SetPoint("TOPRIGHT", -8, -8)
 
   -- Reiter
-  local function tab(key, label, x)
+  local function tab(key, label)
+    tabCount = tabCount + 1
     local b = FlatButton(listFrame, label, 120, 22, function() selectTab(key) end)
-    b:SetPoint("TOPLEFT", x, -36)
+    b:SetPoint("TOPLEFT", 12 + (tabCount - 1) * 126, -36)
     b:SetScript("OnEnter", nil); b:SetScript("OnLeave", nil)
     tabBtns[key] = b
   end
-  tab("list", L("Freunde", "Friends"), 12)
-  tab("settings", L("Einstellungen", "Settings"), 138)
+  tab("list", L("Freunde", "Friends"))
+  tab("settings", L("Einstellungen", "Settings"))
+  NP.AddTabButton = function(key, label)
+    tab(key, label)
+    local pg = CreateFrame("Frame", nil, listFrame)
+    pg:SetPoint("TOPLEFT", 0, -62); pg:SetPoint("BOTTOMRIGHT", 0, 0)
+    pg:Hide()
+    pages[key] = pg
+  end
 
   pageList = CreateFrame("Frame", nil, listFrame)
   pageList:SetPoint("TOPLEFT", 0, -62); pageList:SetPoint("BOTTOMRIGHT", 0, 0)
   pageSet = CreateFrame("Frame", nil, listFrame)
   pageSet:SetPoint("TOPLEFT", 0, -62); pageSet:SetPoint("BOTTOMRIGHT", 0, 0)
   pageSet:Hide()
+  pages.list, pages.settings = pageList, pageSet
+  for key, t in pairs(extraTabs) do NP.AddTabButton(key, t.label) end   -- schon angemeldete Erweiterungen
 
   ------------------------------------------------------------ Reiter Freunde
   local search = CreateFrame("EditBox", nil, pageList, "BackdropTemplate")
@@ -1078,6 +1120,55 @@ function NP.Open(which)
   selectTab(which)
 end
 function NP.ToggleList() NP.Open("list") end
+
+----------------------------------------------------------------------
+-- Öffentliche Schnittstelle für Erweiterungen (z.B. Postillion Craft)
+----------------------------------------------------------------------
+local function friendByName(name)
+  local want = bareName(name)
+  if want == "" then return nil end
+  local best
+  for _, c in pairs(db.chars) do
+    if (c.bn or c.fl) and lower(c.name) == want then
+      if sameWorld(c) then return c end
+      best = best or c
+    end
+  end
+  return best
+end
+
+NP.API = {
+  version = 1,
+  -- gehört der Name einem echten Freund (Battle.net oder normale Freundesliste)? Liefert den Eintrag.
+  IsFriend = function(name) return db and friendByName(name) or nil end,
+  -- stabiler Schlüssel eines Freundes (BattleTag, sonst Charakter), für Daten der Erweiterung
+  FriendKey = function(c) local tk, ck = noteKeys(c) return tk or ck end,
+  -- Freunde, die gerade online sind (nur gleicher Server und gleiche Fraktion), je Eintrag c
+  OnlineFriends = function()
+    local out = {}
+    if not db then return out end
+    for _, c in pairs(db.chars) do
+      local nm = lower(c.name)
+      if (c.bn or c.fl) and sameWorld(c) and (NP.onlineBN[nm] or NP.onlineFL[nm]) then out[#out + 1] = c end
+    end
+    return out
+  end,
+  -- Berufe automatisch liefern: fn(c) -> Liste von Berufsschlüsseln (mining, tailoring ...) oder nil
+  SetProfProvider = function(fn) profProvider = fn; NP.RefreshAll() end,
+  -- Zusatzzeilen im Tooltip eines Freundes: fn(GameTooltip, c)
+  AddTooltip = function(fn) tooltipHooks[#tooltipHooks + 1] = fn end,
+  -- eigener Reiter im Hauptfenster: build(page) einmalig beim ersten Öffnen, show(page) bei jedem Öffnen
+  RegisterTab = function(key, label, build, show)
+    if extraTabs[key] then return end
+    extraTabs[key] = { label = label, build = build, show = show }
+    if listFrame and NP.AddTabButton then NP.AddTabButton(key, label) end
+  end,
+  Refresh = function() NP.RefreshAll() end,
+  Open = function(which) NP.Open(which) end,
+  -- Bausteine im Stil des Kerns für eigene Reiter
+  UI = { Flat = Flat, Text = Text, FlatButton = FlatButton, Check = Check, Panel = Panel, C = C, FONT = FONT, L = L },
+}
+
 
 -- Minimap-Button: Linksklick Freunde, Rechtsklick Einstellungen, Ziehen verschiebt ihn am Rand
 local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end

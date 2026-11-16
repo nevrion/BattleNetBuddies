@@ -50,6 +50,10 @@ Postillion liest im Hintergrund die Charakternamen **deiner Freunde** mit und sp
 | `/pp alle` | Liste auch mit Namen anderer Server/Fraktionen |
 | `/pp debug` | zeigt, was die Battle.net-Schnittstelle liefert und warum ein Freund passt oder ausgeblendet wird |
 
+## Erweiterungen
+
+Postillion hat eine kleine Schnittstelle (`Postillion.API`) für Erweiterungen, z.B. **Postillion Craft**, das Berufe automatisch unter Freunden austauscht. Erweiterungen können eigene Reiter im Hauptfenster anlegen, Berufe und Tooltip-Zeilen liefern und Freunde abfragen.
+
 ## Datenschutz
 
 Alle Daten liegen lokal in deiner `SavedVariables`-Datei (`PostillionDB`). Das Addon sendet nichts an Dritte.
@@ -118,6 +122,10 @@ Postillion quietly records the character names of **your friends** and stores th
 | `/pp auto` | toggle automatic scanning (default: on) |
 | `/pp all` | show names from other realms/factions in the list |
 | `/pp debug` | shows what the Battle.net API returns and why a friend matches or is hidden |
+
+## Extensions
+
+Postillion has a small interface (`Postillion.API`) for extensions, e.g. **Postillion Craft**, which exchanges professions automatically between friends. Extensions can add their own tabs to the main window, provide professions and tooltip lines, and look up friends.
 
 ## Privacy
 

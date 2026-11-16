@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+- **EN:** Public interface for extensions (`Postillion.API`): friend lookup, online friends, automatic professions, tooltip lines and extra tabs in the main window. First extension: *Postillion Craft* (shares professions between friends). Behaviour of the addon itself is unchanged.
+- **DE:** Öffentliche Schnittstelle für Erweiterungen (`Postillion.API`): Freunde nachschlagen, Freunde online, automatische Berufe, Tooltip-Zeilen und zusätzliche Reiter im Hauptfenster. Erste Erweiterung: *Postillion Craft* (tauscht Berufe unter Freunden aus). Das Verhalten des Addons selbst ändert sich nicht.
+
 ## 0.11.2
 - **EN:** The main window is wider so the texts in the settings fit inside the frame.
 - **DE:** Das Hauptfenster ist breiter, damit die Texte in den Einstellungen in den Rahmen passen.
