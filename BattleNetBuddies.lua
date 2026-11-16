@@ -855,7 +855,7 @@ end
 ----------------------------------------------------------------------
 
 local pageList, pageSet
-local pages, extraTabs, tabCount = {}, {}, 0
+local pages, extraTabs, tabOrder = {}, {}, {}
 local tabBtns = {}
 local checks = {}
 local mm
@@ -953,12 +953,24 @@ local function buildMain()
   close:SetPoint("TOPRIGHT", -8, -8)
 
   -- Reiter
+  -- alle Reiter teilen sich die Fensterbreite (höchstens 120 px je Reiter)
+  local function layoutTabs()
+    local n = #tabOrder
+    if n == 0 then return end
+    local w = math.min(120, math.floor((WIN_W - 24 - 6 * (n - 1)) / n))
+    for i, key in ipairs(tabOrder) do
+      local b = tabBtns[key]
+      b:SetWidth(w); b:ClearAllPoints()
+      b:SetPoint("TOPLEFT", 12 + (i - 1) * (w + 6), -36)
+      b.label:SetFont(FONT, w < 100 and 11 or 12, "")
+    end
+  end
   local function tab(key, label)
-    tabCount = tabCount + 1
     local b = FlatButton(listFrame, label, 120, 22, function() selectTab(key) end)
-    b:SetPoint("TOPLEFT", 12 + (tabCount - 1) * 126, -36)
     b:SetScript("OnEnter", nil); b:SetScript("OnLeave", nil)
     tabBtns[key] = b
+    tabOrder[#tabOrder + 1] = key
+    layoutTabs()
   end
   tab("list", L("Freunde", "Friends"))
   tab("settings", L("Einstellungen", "Settings"))
@@ -1165,6 +1177,16 @@ NP.API = {
   end,
   Refresh = function() NP.RefreshAll() end,
   Open = function(which) NP.Open(which) end,
+  -- Empfängerfeld des Post-Fensters mit einem Namen füllen (true, wenn das Post-Fenster offen war)
+  OpenMailTo = function(name)
+    local eb = _G.SendMailNameEditBox
+    if name and eb and MailFrame and MailFrame:IsShown() then
+      eb:SetText(name); eb:SetCursorPosition(#name)
+      if SendMailSubjectEditBox then SendMailSubjectEditBox:SetFocus() end
+      return true
+    end
+    return false
+  end,
   -- Bausteine im Stil des Kerns für eigene Reiter
   UI = { Flat = Flat, Text = Text, FlatButton = FlatButton, Check = Check, Panel = Panel, C = C, FONT = FONT, L = L },
 }

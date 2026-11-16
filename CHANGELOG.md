@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.0
+- **EN:** Tabs share the window width, so extensions can add several tabs. New `API.OpenMailTo(name)` fills the mail recipient field (used by extensions).
+- **DE:** Die Reiter teilen sich die Fensterbreite, damit Erweiterungen mehrere Reiter anlegen können. Neu: `API.OpenMailTo(name)` füllt das Empfängerfeld der Post (für Erweiterungen).
+
 ## 0.13.1
 - **EN:** New logo: used for the minimap button and the addon list.
 - **DE:** Neues Logo: wird für den Minimap-Button und die Addon-Liste verwendet.
