@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0
+- **EN:** Renamed from *Postillion* to **Battle.net Buddies** (folder `BattleNetBuddies`, command `/bnb`; `/pp` and `/postillion` still work as aliases). Saved data is carried over automatically. The extension is now *Battle.net Buddies Craft*.
+- **DE:** Umbenannt von *Postillion* in **Battle.net Buddies** (Ordner `BattleNetBuddies`, Befehl `/bnb`; `/pp` und `/postillion` funktionieren weiter als Alias). Gespeicherte Daten werden automatisch übernommen. Die Erweiterung heißt jetzt *Battle.net Buddies Craft*.
+
 ## 0.12.0
 - **EN:** Public interface for extensions (`Postillion.API`): friend lookup, online friends, automatic professions, tooltip lines and extra tabs in the main window. First extension: *Postillion Craft* (shares professions between friends). Behaviour of the addon itself is unchanged.
 - **DE:** Öffentliche Schnittstelle für Erweiterungen (`Postillion.API`): Freunde nachschlagen, Freunde online, automatische Berufe, Tooltip-Zeilen und zusätzliche Reiter im Hauptfenster. Erste Erweiterung: *Postillion Craft* (tauscht Berufe unter Freunden aus). Das Verhalten des Addons selbst ändert sich nicht.

@@ -1,11 +1,11 @@
--- Postillion: Post-Empfänger vervollständigen, auch für Battle.net-Freunde, die offline sind.
+-- Battle.net Buddies: Post-Empfänger vervollständigen, auch für Battle.net-Freunde, die offline sind.
 -- Idee: Der Charaktername eines Battle.net-Freundes ist nur sichtbar, solange er online ist.
 -- Wir merken uns die Charakternamen deiner Freunde (Battle.net-Freunde, optional die normale Freundesliste)
 -- und bieten sie im Empfängerfeld der Post an. Gilde, Gruppe, Flüstern und Post-Absender werden nicht erfasst.
 
-local ADDON = "Postillion"
+local ADDON = "BattleNetBuddies"
 local NP = {}
-_G.Postillion = NP
+_G.BattleNetBuddies = NP
 
 local DE = (GetLocale and GetLocale() == "deDE")
 local function L(de, en) return DE and de or en end
@@ -18,10 +18,10 @@ local db
 
 local function lower(s) return (s or ""):lower() end
 local function initDB()
-  -- Umbenennung NevPost -> Postillion (0.5.0): alte gemerkte Namen einmalig übernehmen
-  if not PostillionDB and NevPostDB then PostillionDB = NevPostDB end
-  PostillionDB = PostillionDB or {}
-  db = PostillionDB
+  -- Umbenennungen NevPost -> Postillion -> Battle.net Buddies: alte Daten einmalig übernehmen
+  if not BattleNetBuddiesDB then BattleNetBuddiesDB = _G["PostillionDB"] or _G["NevPostDB"] end
+  BattleNetBuddiesDB = BattleNetBuddiesDB or {}
+  db = BattleNetBuddiesDB
   if (db.v or 1) < 2 then db.chars = {}; db.v = 2 end  -- 0.1.0 kannte weder Server noch Fraktion
   -- [kleingeschriebener Name|Server] = {name, realm, faction, src, tag, acc, class, level, seen}
   db.chars = db.chars or {}
@@ -176,7 +176,7 @@ local function getManualProfs(c)
   local tk, ck = noteKeys(c)
   return (tk and db.profs[tk]) or db.profs[ck] or {}
 end
--- Berufe zur Anzeige: Erweiterungen (z.B. Postillion Craft) können automatisch empfangene liefern,
+-- Berufe zur Anzeige: Erweiterungen (z.B. Battle.net Buddies Craft) können automatisch empfangene liefern,
 -- sonst gelten die Handeinträge
 local profProvider
 local function getProfs(c)
@@ -439,7 +439,7 @@ local function chooseName(c)
   -- Post-Fenster nicht offen: Klick auf einen Namen öffnet stattdessen Notiz und Berufe
   if not (box and box:IsVisible()) then editNote(c) return end
   if not sameWorld(c) then
-    print("|cffffcc5cPostillion:|r |cffff5555" .. L("Achtung: ", "Warning: ") .. c.name .. " ("
+    print("|cffffcc5cBattle.net Buddies:|r |cffff5555" .. L("Achtung: ", "Warning: ") .. c.name .. " ("
       .. worldLabel(c) .. ") " .. L("ist auf einem anderen Server oder in einer anderen Fraktion als du.",
       "is on a different realm or faction than you.") .. "|r")
   end
@@ -455,7 +455,7 @@ local ROW_H = 26
 -- Bearbeitungsfenster (Rechtsklick auf einen Namen): Notiz + Berufe
 local editFrame
 local function buildEdit()
-  local f = Panel("PostillionEdit")
+  local f = Panel("BNBEdit")
   f:SetFrameStrata("FULLSCREEN_DIALOG")
   f:SetSize(380, 336)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
@@ -464,7 +464,7 @@ local function buildEdit()
   f:SetScript("OnDragStart", function(s) s:StartMoving() end)
   f:SetScript("OnDragStop", function(s) s:StopMovingOrSizing() end)
   f:Hide()
-  if UISpecialFrames then table.insert(UISpecialFrames, "PostillionEdit") end
+  if UISpecialFrames then table.insert(UISpecialFrames, "BNBEdit") end
   f.title = Text(f, 15, C.sun); f.title:SetPoint("TOPLEFT", 14, -12)
   f.sub = Text(f, 10, C.dim); f.sub:SetPoint("TOPLEFT", 14, -32)
   local nl = Text(f, 11, C.dim); nl:SetPoint("TOPLEFT", 14, -56); nl:SetText(L("Notiz", "Note"))
@@ -538,7 +538,7 @@ local function buildEdit()
     local c = f.c
     if c and c.key then
       db.chars[c.key] = nil; db.hide[c.key] = true
-      print("|cffffcc5cPostillion:|r " .. L("vergessen: ", "forgotten: ") .. c.name)
+      print("|cffffcc5cBattle.net Buddies:|r " .. L("vergessen: ", "forgotten: ") .. c.name)
       if NP.RefreshAll then NP.RefreshAll() end
     end
     f:Hide()
@@ -803,7 +803,7 @@ local function buildUI()
   NP.uiBuilt = true
 
   -- Vorschlagsfenster direkt unter dem Empfängerfeld
-  sug = Panel("PostillionSuggest")
+  sug = Panel("BNBSuggest")
   sug:SetFrameStrata("DIALOG")
   sug:SetWidth(400)
   sug:SetPoint("TOPLEFT", box, "BOTTOMLEFT", -4, -2)
@@ -840,7 +840,7 @@ local function buildUI()
   btn:SetPoint("LEFT", box, "RIGHT", 6, 0)
   btn:HookScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:SetText("Postillion")
+    GameTooltip:SetText("Battle.net Buddies")
     GameTooltip:AddLine(L("Alle gemerkten Charakternamen, auch von Freunden, die offline sind.",
       "All remembered character names, including friends who are offline."), 1, 1, 1, true)
     GameTooltip:Show()
@@ -930,7 +930,7 @@ end
 local function buildMain()
   if listFrame then return end
   local H = 40 + 28 + 34 + LIST_ROWS * ROW_H + 40
-  listFrame = Panel("PostillionList")
+  listFrame = Panel("BNBList")
   listFrame:SetFrameStrata("DIALOG")
   listFrame:SetSize(WIN_W, H)
   listFrame:SetMovable(true); listFrame:EnableMouse(true)
@@ -943,10 +943,10 @@ local function buildMain()
   end)
   listFrame:EnableMouseWheel(true)
   listFrame:Hide()
-  if UISpecialFrames then table.insert(UISpecialFrames, "PostillionList") end
+  if UISpecialFrames then table.insert(UISpecialFrames, "BNBList") end
 
   local title = Text(listFrame, 15, C.sun)
-  title:SetPoint("TOPLEFT", 12, -11); title:SetText("Postillion")
+  title:SetPoint("TOPLEFT", 12, -11); title:SetText("Battle.net Buddies")
   local sub = Text(listFrame, 10, C.dim)
   sub:SetPoint("LEFT", title, "RIGHT", 8, -1); sub:SetText(L("Post an Freunde, auch offline", "Mail to friends, even offline"))
   local close = FlatButton(listFrame, "×", 22, 22, function() listFrame:Hide() end)
@@ -1057,7 +1057,7 @@ local function buildMain()
   end)
   scan:SetPoint("TOPLEFT", 12, -196)
   local diag = FlatButton(pageSet, L("Diagnose in den Chat", "Diagnostics to chat"), 160, 24, function()
-    SlashCmdList.POSTILLION("debug")
+    SlashCmdList.BNB("debug")
   end)
   diag:SetPoint("LEFT", scan, "RIGHT", 8, 0)
 
@@ -1076,7 +1076,7 @@ local function buildMain()
     if n:gsub("%s", "") == "" then return end
     remember(n, "manuell", nil, nil, nil, nil, GetRealmName and GetRealmName(), UnitFactionGroup("player"))
     addE:SetText(""); addE:ClearFocus()
-    print("|cffffcc5cPostillion:|r " .. L("gemerkt: ", "remembered: ") .. n)
+    print("|cffffcc5cBattle.net Buddies:|r " .. L("gemerkt: ", "remembered: ") .. n)
     NP.RefreshSettings()
   end
   addE:SetScript("OnEnterPressed", doAdd)
@@ -1088,16 +1088,16 @@ local function buildMain()
   cmds:SetPoint("TOPLEFT", 12, -304); cmds:SetWidth(WIN_W - 24); cmds:SetJustifyV("TOP")
   if cmds.SetSpacing then cmds:SetSpacing(3) end
   cmds:SetText(table.concat({
-    "|cffffcc5c/pp|r  " .. L("Fenster öffnen", "open the window"),
-    "|cffffcc5c/pp einstellungen|r  " .. L("diesen Reiter öffnen", "open this tab"),
-    "|cffffcc5c/pp liste [Teil]|r  " .. L("Namen im Chat auflisten", "list names in chat"),
-    "|cffffcc5c/pp note Name | Text|r  " .. L("Notiz setzen (Rechtsklick geht auch)", "set a note (right-click works too)"),
-    "|cffffcc5c/pp beruf Name | Beruf, Beruf|r  " .. L("bis zu 2 Berufe setzen", "set up to 2 professions"),
-    "|cffffcc5c/pp add Name|r  " .. L("Namen merken", "remember a name"),
-    "|cffffcc5c/pp del Name|r  " .. L("Namen vergessen", "forget a name"),
-    "|cffffcc5c/pp scan|r  " .. L("jetzt einlesen", "scan now"),
-    "|cffffcc5c/pp auto · /pp alle · /pp minimap|r  " .. L("Schalter wie oben", "toggles as above"),
-    "|cffffcc5c/pp debug|r  " .. L("Diagnose in den Chat", "diagnostics to chat"),
+    "|cffffcc5c/bnb|r  " .. L("Fenster öffnen", "open the window"),
+    "|cffffcc5c/bnb einstellungen|r  " .. L("diesen Reiter öffnen", "open this tab"),
+    "|cffffcc5c/bnb liste [Teil]|r  " .. L("Namen im Chat auflisten", "list names in chat"),
+    "|cffffcc5c/bnb note Name | Text|r  " .. L("Notiz setzen (Rechtsklick geht auch)", "set a note (right-click works too)"),
+    "|cffffcc5c/bnb beruf Name | Beruf, Beruf|r  " .. L("bis zu 2 Berufe setzen", "set up to 2 professions"),
+    "|cffffcc5c/bnb add Name|r  " .. L("Namen merken", "remember a name"),
+    "|cffffcc5c/bnb del Name|r  " .. L("Namen vergessen", "forget a name"),
+    "|cffffcc5c/bnb scan|r  " .. L("jetzt einlesen", "scan now"),
+    "|cffffcc5c/bnb auto · /bnb alle · /bnb minimap|r  " .. L("Schalter wie oben", "toggles as above"),
+    "|cffffcc5c/bnb debug|r  " .. L("Diagnose in den Chat", "diagnostics to chat"),
   }, "\n"))
 
   listFrame:SetScript("OnMouseWheel", function(_, d)
@@ -1122,7 +1122,7 @@ end
 function NP.ToggleList() NP.Open("list") end
 
 ----------------------------------------------------------------------
--- Öffentliche Schnittstelle für Erweiterungen (z.B. Postillion Craft)
+-- Öffentliche Schnittstelle für Erweiterungen (z.B. Battle.net Buddies Craft)
 ----------------------------------------------------------------------
 local function friendByName(name)
   local want = bareName(name)
@@ -1182,7 +1182,7 @@ end
 
 function NP.BuildMinimap()
   if mm or not Minimap then return end
-  mm = CreateFrame("Button", "PostillionMinimapButton", Minimap)
+  mm = CreateFrame("Button", "BNBMinimapButton", Minimap)
   mm:SetSize(31, 31); mm:SetFrameStrata("MEDIUM"); mm:SetFrameLevel(8)
   mm:RegisterForClicks("LeftButtonUp", "RightButtonUp"); mm:RegisterForDrag("LeftButton")
   local bg = mm:CreateTexture(nil, "BACKGROUND")
@@ -1209,7 +1209,7 @@ function NP.BuildMinimap()
   mm:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   mm:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText("Postillion", unpack(C.sun))
+    GameTooltip:SetText("Battle.net Buddies", unpack(C.sun))
     local n = 0
     for _ in pairs(db.chars) do n = n + 1 end
     GameTooltip:AddLine(n .. L(" Namen gemerkt", " names remembered"), 0.62, 0.6, 0.72)
@@ -1245,7 +1245,7 @@ local function scheduleScan()
 end
 
 -- Selbstständig im Hintergrund einlesen: kurz nach dem Login (Battle.net ist dann oft noch nicht
--- bereit), danach jede Minute. Ausschalten: /pp auto
+-- bereit), danach jede Minute. Ausschalten: /bnb auto
 local AUTO_FRIENDS = 60
 local function autoStep()
   if not db or db.auto == false then return end
@@ -1280,11 +1280,13 @@ end)
 -- Befehle
 ----------------------------------------------------------------------
 
-local function say(msg) print("|cffffcc5cPostillion:|r " .. msg) end
+local function say(msg) print("|cffffcc5cBattle.net Buddies:|r " .. msg) end
 
-SLASH_POSTILLION1 = "/pp"
-SLASH_POSTILLION2 = "/postillion"
-SlashCmdList["POSTILLION"] = function(msg)
+SLASH_BNB1 = "/bnb"
+SLASH_BNB2 = "/buddies"
+SLASH_BNB3 = "/pp"          -- alte Befehle bleiben als Alias
+SLASH_BNB4 = "/postillion"
+SlashCmdList["BNB"] = function(msg)
   if not db then return end
   msg = msg or ""
   local cmd, rest = msg:match("^(%S*)%s*(.-)$")
@@ -1300,18 +1302,18 @@ SlashCmdList["POSTILLION"] = function(msg)
   elseif cmd == "hilfe" or cmd == "help" then
     say(L("Merkt Charakternamen von Freunden und vervollständigt sie im Post-Feld, auch offline.",
           "Remembers friends' character names and autocompletes them in the mail field, also offline."))
-    say(L("/pp liste [Teil]  zeigt gemerkte Namen", "/pp list [part]  shows remembered names"))
-    say(L("/pp add <Name> [Freundesname]  Name von Hand merken", "/pp add <name> [friend name]  remember a name by hand"))
-    say(L("/pp beruf <Name> | <Beruf, Beruf>  Berufe eintragen (leer = löschen)",
-          "/pp prof <name> | <profession, profession>  set professions (empty = delete)"))
-    say(L("/pp note <Name> | <Text>  Notiz zu einem Freund (leer = löschen; im Fenster: Rechtsklick)",
-          "/pp note <name> | <text>  note for a friend (empty = delete; in the window: right-click)"))
-    say(L("/pp del <Name>  Namen vergessen", "/pp del <name>  forget a name"))
-    say(L("/pp alle  Liste auch mit Namen anderer Server/Fraktionen (grau) ein- oder ausschalten",
-          "/pp all  toggle showing names from other realms/factions (grey) in the list"))
-    say(L("/pp auto  automatisches Einlesen alle 60 s ein/aus (Standard: an)",
-          "/pp auto  toggle automatic scan every 60 s (default: on)"))
-    say(L("/pp scan  Freunde jetzt einlesen", "/pp scan  read friends now"))
+    say(L("/bnb liste [Teil]  zeigt gemerkte Namen", "/bnb list [part]  shows remembered names"))
+    say(L("/bnb add <Name> [Freundesname]  Name von Hand merken", "/bnb add <name> [friend name]  remember a name by hand"))
+    say(L("/bnb beruf <Name> | <Beruf, Beruf>  Berufe eintragen (leer = löschen)",
+          "/bnb prof <name> | <profession, profession>  set professions (empty = delete)"))
+    say(L("/bnb note <Name> | <Text>  Notiz zu einem Freund (leer = löschen; im Fenster: Rechtsklick)",
+          "/bnb note <name> | <text>  note for a friend (empty = delete; in the window: right-click)"))
+    say(L("/bnb del <Name>  Namen vergessen", "/bnb del <name>  forget a name"))
+    say(L("/bnb alle  Liste auch mit Namen anderer Server/Fraktionen (grau) ein- oder ausschalten",
+          "/bnb all  toggle showing names from other realms/factions (grey) in the list"))
+    say(L("/bnb auto  automatisches Einlesen alle 60 s ein/aus (Standard: an)",
+          "/bnb auto  toggle automatic scan every 60 s (default: on)"))
+    say(L("/bnb scan  Freunde jetzt einlesen", "/bnb scan  read friends now"))
     say(L("Im Post-Fenster: Name tippen (auch nur Nachname) oder Knopf \"Freunde\".",
           "In the mail window: type a name (or just the last name) or use the \"Friends\" button."))
   elseif cmd == "alle" or cmd == "all" then
@@ -1369,8 +1371,8 @@ SlashCmdList["POSTILLION"] = function(msg)
     db.auto = (db.auto == false)
     say(db.auto and L("Automatisches Einlesen im Hintergrund AN (Freunde jede Minute).",
       "Automatic background scan ON (friends every minute).")
-      or L("Automatisches Einlesen AUS (nur noch bei Ereignissen und /pp scan).",
-      "Automatic background scan OFF (only on events and /pp scan)."))
+      or L("Automatisches Einlesen AUS (nur noch bei Ereignissen und /bnb scan).",
+      "Automatic background scan OFF (only on events and /bnb scan)."))
   elseif cmd == "scan" then
     NP.ScanAll()
     local n = 0 for _ in pairs(db.chars) do n = n + 1 end
@@ -1410,6 +1412,6 @@ SlashCmdList["POSTILLION"] = function(msg)
     end
     say("SendMailNameEditBox=" .. tostring(_G.SendMailNameEditBox ~= nil))
   else
-    say(L("Unbekannter Befehl. /pp hilfe", "Unknown command. /pp help"))
+    say(L("Unbekannter Befehl. /bnb hilfe", "Unknown command. /bnb help"))
   end
 end

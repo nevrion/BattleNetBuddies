@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: |cffffcc5cBattle.net Buddies|r
+## Notes: Friends manager and mail recipient autocomplete for Battle.net and regular friends, also when offline. Remembers character names, notes and professions. Command: /bnb
+## Notes-deDE: Freundesverwaltung und Post-Empfänger-Vervollständigung für Battle.net- und normale Freunde, auch offline. Merkt sich Charakternamen, Notizen und Berufe. Befehl: /bnb
+## Author: nevrion
+## Version: 0.13.0
+## X-License: MIT
+## X-Website: https://github.com/nevrion/BattleNetBuddies
+## SavedVariables: BattleNetBuddiesDB, PostillionDB, NevPostDB
+
+BattleNetBuddies.lua
