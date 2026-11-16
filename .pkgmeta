@@ -1,5 +1,11 @@
 package-as: Postillion
 
+# Changelog von Hand gepflegt (zweisprachig), statt aus den Commit-Texten erzeugt.
+# Wird ins Zip, ins GitHub-Release und zu CurseForge übernommen.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 ignore:
   - README.md
   - .github
