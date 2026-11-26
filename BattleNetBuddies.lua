@@ -237,6 +237,12 @@ end
 local function bareName(n) return (n or ""):gsub("%-[^%- ]+$", ""):lower() end
 NP.onlineBN, NP.onlineFL = {}, {}   -- Freunde, die gerade online sind (kleingeschriebener Charaktername)
 
+-- WoW-Client? Das Spiel meldet je nach Version "WoW", "WoWC" oder andere Schreibweisen (z.B. Forever); alles, was mit "WoW" beginnt, zählt.
+local function isWoWClient(p)
+  if not p or p == "" then return true end
+  return p:lower():find("^wow") ~= nil
+end
+
 local function scanBattleNet()
   local n = 0
   NP.onlineBN = {}
@@ -248,7 +254,7 @@ local function scanBattleNet()
         local function take(g)
           if g and g.characterName and g.characterName ~= "" then
             -- nur WoW-Charaktere (andere Spiele haben keinen Post)
-            if not g.clientProgram or g.clientProgram == "WoW" or g.clientProgram == "WoWC" then
+            if isWoWClient(g.clientProgram) then
               if g.isOnline ~= false then NP.onlineBN[bareName(g.characterName)] = true end
               -- ohne BattleTag meldet Forever reine Ingame-Charakterfreunde über diese Liste
               local real = info.battleTag and info.battleTag ~= ""
@@ -276,7 +282,7 @@ local function scanBattleNet()
     -- ältere API
     for i = 1, (BNGetNumFriends() or 0) do
       local _, accName, tag, _, toon, _, client, isOnline = BNGetFriendInfo(i)
-      if isOnline and toon and toon ~= "" and (client == "WoW" or client == "WoWC" or client == nil) then
+      if isOnline and toon and toon ~= "" and (client == nil or tostring(client):lower():find("^wow") ~= nil) then
         local real = tag and tag ~= ""
         remember(toon, real and "freund" or "liste", real and tag or nil, real and accName or nil) -- alte API: kein Server/Fraktion
         n = n + 1
@@ -1425,7 +1431,7 @@ SlashCmdList["BNB"] = function(msg)
             verdict = "ausgeblendet: Server " .. (realmOk(c.realmKey) and "ok" or "ANDERS")
               .. ", Fraktion " .. (c.faction == myFaction() and "ok" or ("ANDERS (" .. tostring(c.faction) .. ")"))
           end
-          say(g.characterName .. " | realm=" .. tostring(g.realmName) .. " | realmID=" .. tostring(g.realmID)
+          say(g.characterName .. " | client=" .. tostring(g.clientProgram) .. " online=" .. tostring(g.isOnline) .. " | realm=" .. tostring(g.realmName) .. " | realmID=" .. tostring(g.realmID)
             .. " | " .. tostring(g.factionName) .. " -> " .. verdict)
           shown = shown + 1
           if shown >= 10 then break end

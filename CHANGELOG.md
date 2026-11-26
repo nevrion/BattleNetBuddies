@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+- **EN:** Friends are now picked up whatever the game reports as the client program, as long as it starts with "WoW" (before only exactly "WoW" or "WoWC", so friends could vanish if WoW Forever changed the spelling). `/bnb debug` now also shows the client program and online state of each friend.
+- **DE:** Freunde werden jetzt übernommen, egal wie das Spiel das Client-Programm schreibt, solange es mit "WoW" beginnt (vorher nur genau "WoW" oder "WoWC", Freunde konnten verschwinden, wenn WoW Forever die Schreibweise ändert). `/bnb debug` zeigt jetzt auch Client-Programm und Online-Status jedes Freundes.
+
 ## 0.14.0
 - **EN:** Tabs share the window width, so extensions can add several tabs. New `API.OpenMailTo(name)` fills the mail recipient field (used by extensions).
 - **DE:** Die Reiter teilen sich die Fensterbreite, damit Erweiterungen mehrere Reiter anlegen können. Neu: `API.OpenMailTo(name)` füllt das Empfängerfeld der Post (für Erweiterungen).
