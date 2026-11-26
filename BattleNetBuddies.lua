@@ -54,8 +54,11 @@ local function myFaction() return normFaction((UnitFactionGroup("player"))) end
 
 -- verbundene Server (Post geht dorthin ebenfalls) gelten als gleicher Server
 local function realmOk(r)
+  local mine = myRealm()
+  -- WoW Forever meldet teils gar keinen Server (GetRealmName leer, Freunde ohne realmName): dann gibt es nichts zu vergleichen
+  if mine == nil then return r == nil end
   if not r then return false end
-  if r == myRealm() then return true end
+  if r == mine then return true end
   if GetAutoCompleteRealms then
     local ok, list = pcall(GetAutoCompleteRealms)
     if ok and type(list) == "table" then
@@ -67,7 +70,7 @@ end
 
 -- passt der Eintrag zu meinem Charakter (gleicher Server, gleiche Fraktion)?
 local function sameWorld(c)
-  return c.realmKey ~= nil and c.faction ~= nil and realmOk(c.realmKey) and c.faction == myFaction()
+  return c.faction ~= nil and realmOk(c.realmKey) and c.faction == myFaction()
 end
 
 -- Servertyp in üblicher Schreibweise (intern kleingeschrieben: pve, rppve ...)
@@ -84,6 +87,7 @@ local function factionIcon(f)
 end
 
 local function worldLabel(c)
+  if not c.realmKey then return factionIcon(c.faction) end
   return kindLabel(c.realmKey) .. " " .. factionIcon(c.faction)
 end
 
